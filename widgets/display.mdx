@@ -1,5 +1,5 @@
 ---
-title: "Display Widgets: Labels, Icons, and Rich Text"
+title: "Fyne Display Widgets: Labels, Toolbars, and Rich Text"
 sidebarTitle: "Display Widgets"
 description: "Reference for Fyne's display widgets — Label, Icon, Hyperlink, RichText, Accordion, Card, Toolbar, ProgressBar, PopUp, Calendar, and more."
 ---
@@ -291,18 +291,19 @@ bar.TextFormatter = func() string {
 **Constructor**
 
 ```go
-inf := widget.NewProgressBarInfinite() // starts animating immediately
+inf := widget.NewProgressBarInfinite()
+inf.Start() // begin animation
 ```
 
 **Key methods**
 
 ```go
-inf.Start()    // resume animation
-inf.Stop()     // stop and reset
+inf.Start()    // begin animation
+inf.Stop()     // stop animation
 inf.Running()  // returns true if animating
 ```
 
-The bar starts running automatically when created and when `Show()` is called.
+The bar starts animating when `Start()` is called and also resumes when `Show()` is called after being hidden.
 
 ---
 

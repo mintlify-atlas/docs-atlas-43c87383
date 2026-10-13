@@ -1,5 +1,5 @@
 ---
-title: "Theming and Styling Your Fyne App"
+title: "Fyne Theming: Colors, Sizes, Fonts, and Custom Themes"
 sidebarTitle: "Theming"
 description: "Learn how Fyne's theme system works — built-in dark/light themes, the Theme interface, color and size tokens, and building a fully custom theme."
 ---
@@ -107,15 +107,22 @@ The `theme` package defines a comprehensive set of `ThemeColorName` constants. W
   </Card>
 </CardGroup>
 
-Use convenience helpers to read the current color without a manual theme lookup:
+Use `theme.Color(name)` (since 2.5) to read the current color without a manual theme lookup:
 
 ```go
-bg    := theme.BackgroundColor()
-fg    := theme.ForegroundColor()
-pri   := theme.PrimaryColor()
-focus := theme.FocusColor()
-err   := theme.ErrorColor()
+bg    := theme.Color(theme.ColorNameBackground)
+fg    := theme.Color(theme.ColorNameForeground)
+pri   := theme.Color(theme.ColorNamePrimary)
+focus := theme.Color(theme.ColorNameFocus)
+err   := theme.Color(theme.ColorNameError)
 ```
+
+<Note>
+  The older per-color helpers such as `theme.BackgroundColor()`,
+  `theme.ForegroundColor()`, and `theme.PrimaryColor()` still work but are
+  deprecated since Fyne 2.0 and will be removed in v3. Prefer
+  `theme.Color(theme.ColorNameXxx)` in new code.
+</Note>
 
 ### Primary Color Palette
 
@@ -286,16 +293,16 @@ a.Settings().SetTheme(modernTheme)
 
 ## Per-Widget Theme Override
 
-Since Fyne 2.5, individual widgets can use a different theme from the rest of the application via `app.ApplyThemeTo`:
+Since Fyne 2.5, individual widgets or sub-trees can use a different theme from the rest of the application via `container.NewThemeOverride`. Wrap any `CanvasObject` with a `ThemeOverride` container and every descendant widget will render using the supplied theme.
 
 ```go
-import "fyne.io/fyne/v2/app"
+import "fyne.io/fyne/v2/container"
 
-// Apply a compact theme to just this card widget
-app.ApplyThemeTo(myCard, &compactTheme{})
+// Apply a compact theme to just this card widget (and its children)
+overridden := container.NewThemeOverride(myCard, &compactTheme{})
 ```
 
-The per-widget theme is inherited by the widget's children, making it possible to theme entire sub-trees differently without changing the global application theme.
+The per-widget theme is inherited by the wrapped object's children, making it possible to theme entire sub-trees differently without changing the global application theme. If content is added to a nested container after the `ThemeOverride` is created, call `overridden.Refresh()` to propagate the theme to the new items.
 
 ## Listening for Theme Changes
 

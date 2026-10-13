@@ -1,7 +1,7 @@
 ---
-title: "Apps and Windows in Fyne"
+title: "Fyne Apps and Windows: Lifecycle, Preferences, Settings"
 sidebarTitle: "Apps & Windows"
-description: "Learn how to create and manage Fyne applications and windows, covering lifecycle, preferences, settings, and multiple-window patterns."
+description: "Learn how to create and manage Fyne applications and windows, covering lifecycle hooks, preferences, settings, and multiple-window patterns."
 ---
 
 Every Fyne program begins with a single `App` instance that owns the event loop and all platform resources. Windows are created from that app and represent the visible surfaces your users interact with. Understanding the relationship between `App` and `Window` — and the lifecycle methods that govern them — is the essential first step to building cross-platform GUI software with Fyne.
@@ -60,6 +60,12 @@ w.Show()
   <Card title="Full Screen" icon="expand">
     `w.SetFullScreen(true)` — toggle full-screen mode programmatically.
   </Card>
+  <Card title="Padding" icon="border-inner">
+    `w.SetPadded(false)` — remove inner padding so content fills the window edge-to-edge. Useful for fullscreen or graphical apps.
+  </Card>
+  <Card title="Request Focus" icon="arrow-pointer">
+    `w.RequestFocus()` — raise and focus this window. Use only when you are certain the user expects it.
+  </Card>
 </CardGroup>
 
 ```go
@@ -67,8 +73,21 @@ w := a.NewWindow("Dashboard")
 w.Resize(fyne.NewSize(1024, 768))
 w.SetFixedSize(false)
 w.CenterOnScreen()
+w.SetPadded(true)   // true is the default; set false for edge-to-edge content
 w.SetIcon(resourceIconPng) // fyne.Resource loaded via fyne bundle
 w.SetTitle("My App — Dashboard")
+```
+
+### Receiving Dropped Files
+
+`SetOnDropped` registers a callback that fires when the user drags files or URIs onto the window. The callback receives the drop position and a slice of `fyne.URI` values.
+
+```go
+w.SetOnDropped(func(pos fyne.Position, uris []fyne.URI) {
+    for _, u := range uris {
+        fmt.Println("Dropped:", u.String())
+    }
+})
 ```
 
 ### Intercepting the Close Button
@@ -220,7 +239,7 @@ scale := settings.Scale()
 primary := settings.PrimaryColor()
 
 // Listen for changes (e.g. when the user switches OS dark mode)
-settings.AddListener(func(s fyne.Settings) {
+settings.AddListener(func(s fyne.Settings) { // Since: 2.6
     fmt.Println("Theme changed to variant:", s.ThemeVariant())
 })
 ```
@@ -232,4 +251,25 @@ a.SendNotification(&fyne.Notification{
     Title:   "Build complete",
     Content: "Your project compiled successfully.",
 })
+```
+
+## App Storage
+
+`a.Storage()` returns a `fyne.Storage` handler that provides access to the app's sandboxed file system. This is the recommended place to read and write application data on all platforms, including mobile where direct file paths are restricted.
+
+```go
+storage := a.Storage()
+root := storage.RootURI() // returns a fyne.URI pointing to the app data directory
+```
+
+## App Metadata
+
+`a.Metadata()` returns the `fyne.AppMetadata` struct populated at build time by `fyne package`. It is available when running with `go run` but may be empty for plain `go build` binaries.
+
+```go
+meta := a.Metadata()
+fmt.Println("App ID:", meta.ID)
+fmt.Println("Version:", meta.Version)
+fmt.Println("Build:", meta.Build)
+fmt.Println("Release build:", meta.Release)
 ```

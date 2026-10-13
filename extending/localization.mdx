@@ -1,5 +1,5 @@
 ---
-title: "Localize Your Fyne App with the lang Package"
+title: "Localize Your Fyne Application with the lang Package"
 sidebarTitle: "Localization"
 description: "Learn how to add translations to your Fyne application using the fyne.io/fyne/v2/lang package, JSON translation files, and Go's embed.FS."
 ---
@@ -73,7 +73,7 @@ If you have translations stored outside a filesystem — for example fetched fro
 ```go
 import "fyne.io/fyne/v2"
 
-err := lang.AddTranslationsForLocale(jsonData, fyne.NewLocale("fr"))
+err := lang.AddTranslationsForLocale(jsonData, fyne.Locale("fr"))
 ```
 
 ## Core translation functions
@@ -151,7 +151,7 @@ text := lang.N("files", count, map[string]any{"Count": count})
 
 The following key names are treated as metadata by the `go-i18n` parser and must **not** appear as top-level translation keys alongside regular string keys:
 
-```
+```text
 id  description  hash  leftdelim  rightdelim
 zero  one  two  few  many  other  translation
 ```
@@ -176,7 +176,7 @@ Fyne automatically detects the system locale using `go-locale` during `init`. Yo
 
 <Steps>
   <Step title="Create your translations directory">
-    ```
+    ```text
     myapp/
     └── translations/
         ├── en.json

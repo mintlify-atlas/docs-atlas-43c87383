@@ -1,7 +1,7 @@
 ---
-title: "Theme Package — Fyne API Reference"
-sidebarTitle: "theme"
-description: "Fyne theme API reference: fyne.Theme interface, color names, size names, icon names, TextStyle, ThemeVariant, and shorthand helper functions."
+title: "Fyne Theme Package — Colors, Sizes & Icons"
+sidebarTitle: "Theme"
+description: "Fyne v2 theme API reference: fyne.Theme interface, color names, size names, icon helper functions, TextStyle, ThemeVariant, and shorthand helpers."
 ---
 
 The `theme` package controls the visual appearance of every Fyne widget. A theme is a named set of colors, sizes, fonts, and icons looked up at render time, so a single call to `app.Settings().SetTheme(myTheme)` instantly re-renders the entire UI. The default theme adapts to the operating system's light/dark preference. Custom themes are created by implementing the `fyne.Theme` interface.
@@ -132,6 +132,8 @@ Look up colors by name from the active theme using `theme.Color(name)`.
 | `ColorNameHeaderBackground` | `"headerBackground"` | Background behind collection headers. *(Since 2.4)* |
 | `ColorNameHover` | `"hover"` | Overlay tint when a cursor hovers over a widget. |
 | `ColorNameHyperlink` | `"hyperlink"` | Link color in text. *(Since 2.4)* |
+| `ColorNameInnerWindowBorder` | `"innerWindowBorder"` | Border color of inner windows. *(Since 2.6)* |
+| `ColorNameInnerWindowBorderInactive` | `"innerWindowBorderInactive"` | Border color of unfocused inner windows. *(Since 2.6)* |
 | `ColorNameInputBackground` | `"inputBackground"` | Background of entry fields and inputs. |
 | `ColorNameInputBorder` | `"inputBorder"` | Border color of entry fields. *(Since 2.3)* |
 | `ColorNameMenuBackground` | `"menuBackground"` | Background of menus and pop-up menus. *(Since 2.3)* |
@@ -217,6 +219,8 @@ Look up size values (in Fyne points) from the active theme using `theme.Size(nam
 | `SizeNameMenuRadius` | 3 | Corner radius of menus. *(Since 2.8)* |
 | `SizeNameSelectionRadius` | 3 | Selection highlight corner radius. *(Since 2.4)* |
 | `SizeNameLineSpacing` | 4 | Gap between text lines. *(Since 2.3)* |
+| `SizeNameSplitThickness` | — | Thickness of a split container divider. *(Since 2.8)* |
+| `SizeNameInnerWindowRadius` | 5 | Corner radius for inner (MDI) windows. *(Since 2.8)* |
 
 ### Size Shorthand Functions
 
@@ -230,6 +234,8 @@ func CaptionTextSize() float32
 func InnerPadding() float32
 func LineSpacing() float32
 func ScrollBarSize() float32
+func ScrollBarSmallSize() float32
+func SelectionRadiusSize() float32
 func SeparatorThicknessSize() float32
 func InputBorderSize() float32
 func InputRadiusSize() float32
@@ -289,7 +295,7 @@ Retrieve icons from the active theme with `theme.Icon(name)` or via dedicated he
 | `theme.MediaPauseIcon()` | Pause ⏸. |
 | `theme.MediaStopIcon()` | Stop ⏹. |
 | `theme.MediaFastForwardIcon()` | Fast-forward ⏩. |
-| `theme.MediaRewindIcon()` | Rewind ⏪. |
+| `theme.MediaFastRewindIcon()` | Fast-rewind ⏪. |
 | `theme.MediaSkipNextIcon()` | Skip next ⏭. |
 | `theme.MediaSkipPreviousIcon()` | Skip previous ⏮. |
 | `theme.DownloadIcon()` | Download arrow. |

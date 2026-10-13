@@ -1,5 +1,5 @@
 ---
-title: "Layouts and Containers in Fyne"
+title: "Fyne Layouts and Containers: Complete Reference Guide"
 sidebarTitle: "Layouts"
 description: "Master Fyne's container and layout system — VBox, HBox, grid, border, stack, scroll, split, and tab layouts with practical code examples."
 ---
@@ -100,6 +100,17 @@ hbox := container.NewHBox(
         widget.NewCard("Item 2", "", nil),
         widget.NewCard("Item 3", "", nil),
         widget.NewCard("Item 4", "", nil),
+    )
+    ```
+  </Tab>
+  <Tab title="Grid Wrap">
+    ```go
+    // Every child is resized to itemSize; items wrap to a new row when
+    // there is no horizontal space remaining.
+    grid := container.NewGridWrap(fyne.NewSize(120, 80),
+        widget.NewCard("A", "", nil),
+        widget.NewCard("B", "", nil),
+        widget.NewCard("C", "", nil),
     )
     ```
   </Tab>

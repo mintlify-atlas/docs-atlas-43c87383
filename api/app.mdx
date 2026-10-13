@@ -1,7 +1,7 @@
 ---
-title: "App & Window — Fyne API Reference"
-sidebarTitle: "app"
-description: "Complete reference for fyne.App, fyne.Window, and fyne.Preferences. Learn how to create, configure, and run Fyne GUI applications across platforms."
+title: "Fyne App & Window — API Reference for v2"
+sidebarTitle: "App & Window"
+description: "Reference for fyne.App, fyne.Window, and fyne.Preferences in Fyne v2. Create, configure, and run cross-platform GUI applications with lifecycle hooks."
 ---
 
 The `app` package is the entry point for every Fyne GUI program. It provides two constructor functions—`app.New()` and `app.NewWithID()`—that return a `fyne.App` value, which owns the event loop, all windows, application preferences, storage, and lifecycle hooks. A `fyne.App` manages one or more `fyne.Window` values and blocks in `Run()` until all windows are closed or `Quit()` is called.
@@ -101,7 +101,10 @@ type App interface {
 | `Storage() Storage` | Returns an app-scoped storage handler. |
 | `Lifecycle() Lifecycle` | Returns lifecycle hooks (foreground/background/start/stop). *(Since 2.1)* |
 | `Metadata() AppMetadata` | Returns build-time metadata populated by `fyne package`. *(Since 2.2)* |
+| `CloudProvider() CloudProvider` | Returns the currently configured cloud provider, if any. *(Since 2.3)* |
+| `SetCloudProvider(CloudProvider)` | Configures cloud integration for the application. *(Since 2.3)* |
 | `Clipboard() Clipboard` | Returns the system clipboard. *(Since 2.6)* |
+| `Cache() Cache` | Returns an app-scoped cache handler. *(Since 2.8)* |
 
 <Note>
 `SecretPreferences` may return `fyne.ErrPasswordRequired` on platforms without a system keychain. In that case, obtain a password from the user and call the method again.
@@ -199,6 +202,7 @@ type Window interface {
 | `RequestFocus()` | Brings the window to the foreground and focuses it. |
 | `SetPadded(bool)` | When `false`, content fills the window edge-to-edge. Useful for graphical apps. |
 | `SetFullScreen(bool)` | Enters or exits full-screen mode. |
+| `SetOnDropped(func(Position, []URI))` | Registers a callback for file or URI drag-and-drop onto the window. *(Since 2.4)* |
 
 ```go
 w := a.NewWindow("Editor")
@@ -226,22 +230,34 @@ type Preferences interface {
     Bool(key string) bool
     BoolWithFallback(key string, fallback bool) bool
     SetBool(key string, value bool)
+    BoolList(key string) []bool                            // Since: 2.4
+    BoolListWithFallback(key string, fallback []bool) []bool // Since: 2.4
+    SetBoolList(key string, value []bool)                  // Since: 2.4
 
     Float(key string) float64
     FloatWithFallback(key string, fallback float64) float64
     SetFloat(key string, value float64)
+    FloatList(key string) []float64                              // Since: 2.4
+    FloatListWithFallback(key string, fallback []float64) []float64 // Since: 2.4
+    SetFloatList(key string, value []float64)                    // Since: 2.4
 
     Int(key string) int
     IntWithFallback(key string, fallback int) int
     SetInt(key string, value int)
+    IntList(key string) []int                           // Since: 2.4
+    IntListWithFallback(key string, fallback []int) []int // Since: 2.4
+    SetIntList(key string, value []int)                 // Since: 2.4
 
     String(key string) string
-    StringWithFallback(key string, fallback string) string
+    StringWithFallback(key, fallback string) string
     SetString(key string, value string)
+    StringList(key string) []string                              // Since: 2.4
+    StringListWithFallback(key string, fallback []string) []string // Since: 2.4
+    SetStringList(key string, value []string)                    // Since: 2.4
 
     RemoveValue(key string)
     AddChangeListener(func())
-    ChangeListeners() []func()
+    ChangeListeners() []func() // Since: 2.3
 }
 ```
 
@@ -252,17 +268,30 @@ type Preferences interface {
 | `Bool(key)` | Returns the stored bool, or `false` if not set. |
 | `BoolWithFallback(key, fallback)` | Returns the stored bool, or `fallback` if not set. |
 | `SetBool(key, value)` | Stores a bool value. |
+| `BoolList(key)` | Returns the stored `[]bool`, or `nil` if not set. *(Since 2.4)* |
+| `BoolListWithFallback(key, fallback)` | Returns the stored `[]bool`, or `fallback` if not set. *(Since 2.4)* |
+| `SetBoolList(key, value)` | Stores a `[]bool` value. *(Since 2.4)* |
 | `Float(key)` | Returns the stored float64, or `0` if not set. |
 | `FloatWithFallback(key, fallback)` | Returns the stored float64, or `fallback` if not set. |
 | `SetFloat(key, value)` | Stores a float64 value. |
+| `FloatList(key)` | Returns the stored `[]float64`, or `nil` if not set. *(Since 2.4)* |
+| `FloatListWithFallback(key, fallback)` | Returns the stored `[]float64`, or `fallback` if not set. *(Since 2.4)* |
+| `SetFloatList(key, value)` | Stores a `[]float64` value. *(Since 2.4)* |
 | `Int(key)` | Returns the stored int, or `0` if not set. |
 | `IntWithFallback(key, fallback)` | Returns the stored int, or `fallback` if not set. |
 | `SetInt(key, value)` | Stores an int value. |
+| `IntList(key)` | Returns the stored `[]int`, or `nil` if not set. *(Since 2.4)* |
+| `IntListWithFallback(key, fallback)` | Returns the stored `[]int`, or `fallback` if not set. *(Since 2.4)* |
+| `SetIntList(key, value)` | Stores a `[]int` value. *(Since 2.4)* |
 | `String(key)` | Returns the stored string, or `""` if not set. |
 | `StringWithFallback(key, fallback)` | Returns the stored string, or `fallback` if not set. |
 | `SetString(key, value)` | Stores a string value. |
+| `StringList(key)` | Returns the stored `[]string`, or `nil` if not set. *(Since 2.4)* |
+| `StringListWithFallback(key, fallback)` | Returns the stored `[]string`, or `fallback` if not set. *(Since 2.4)* |
+| `SetStringList(key, value)` | Stores a `[]string` value. *(Since 2.4)* |
 | `RemoveValue(key)` | Deletes the value for the given key. |
 | `AddChangeListener(func())` | Registers a callback invoked on any preference change. |
+| `ChangeListeners() []func()` | Returns all registered change listener callbacks. *(Since 2.3)* |
 
 ```go
 prefs := a.Preferences()

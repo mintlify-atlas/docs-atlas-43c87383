@@ -1,7 +1,7 @@
 ---
-title: "Package Fyne Apps for Android and iOS"
+title: "Packaging and Deploying Fyne Apps for Android and iOS"
 sidebarTitle: "Mobile"
-description: "Package and deploy Fyne applications to Android and iOS devices using the fyne CLI, with prerequisites, step-by-step commands, and mobile-specific guidance."
+description: "Package and deploy Fyne applications to Android and iOS using the fyne CLI, with prerequisites, step-by-step commands, and mobile-specific guidance."
 ---
 
 Fyne's single-codebase philosophy extends fully to mobile — the same Go source that runs on your desktop compiles into a native Android APK or iOS application bundle. The `fyne` CLI wraps Google's `gomobile` toolchain to handle the cross-compilation, manifest generation, and device deployment so you can iterate quickly without leaving your terminal. Because Fyne abstracts platform differences, most of your application code requires no changes at all to run on a phone or tablet.
@@ -169,16 +169,16 @@ The window simulates a mobile form factor and disables desktop-only features lik
 
 Every mobile package command requires a valid App ID in **reverse-DNS format**:
 
-```
+```text
 com.yourcompany.yourapp
 ```
 
 Rules enforced by the `fyne` CLI:
 
 - Must contain at least one `.`
-- No hyphens (`-`) allowed
-- Each segment cannot start with an underscore (`_`) or a digit
-- For iOS, must match a provisioning profile registered with Apple
+- Android: no hyphens (`-`) allowed
+- Android: each segment cannot start with an underscore (`_`) or a digit
+- iOS: must match a provisioning profile bundle identifier registered with Apple
 
 ```bash
 # ✅ valid

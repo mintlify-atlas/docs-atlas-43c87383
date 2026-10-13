@@ -1,7 +1,7 @@
 ---
-title: "Storage Package — Fyne API Reference"
-sidebarTitle: "storage"
-description: "Fyne storage API reference: URI creation, file read/write, directory listing, copy, move, delete, and app-scoped sandboxed storage with fyne.URI types."
+title: "Fyne Storage Package — URI & File API v2"
+sidebarTitle: "Storage"
+description: "Fyne v2 storage API reference: URI creation, file read/write, directory listing, copy, move, delete, and app-scoped sandboxed storage with fyne.URI types."
 ---
 
 The `storage` package provides a URI-based, scheme-agnostic API for working with files, directories, and other addressable resources. Every operation is routed through a registered `repository.Repository` for the URI's scheme, which means the same API works uniformly for `file://`, `http(s)://`, and any custom scheme you register. The `fyne.App`'s `Storage()` accessor provides a sandboxed root URI suitable for storing private application data.
@@ -100,6 +100,14 @@ func EqualURI(t1, t2 fyne.URI) bool
 ```
 
 Returns `true` if two URIs reference the same resource.
+
+### `storage.LoadResourceFromURI`
+
+```go
+func LoadResourceFromURI(u fyne.URI) (fyne.Resource, error)
+```
+
+Opens the URI and reads its entire content into a `fyne.StaticResource` in memory. Useful for loading icon or image assets from a URI into a resource that can be reused without re-reading the file each time.
 
 ---
 

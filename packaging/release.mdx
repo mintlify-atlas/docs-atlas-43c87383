@@ -1,5 +1,5 @@
 ---
-title: "Release Fyne Apps to App Stores"
+title: "Releasing Fyne Apps to the iOS, Android, and Windows Stores"
 sidebarTitle: "Release"
 description: "Use fyne release to sign and package Fyne apps for the iOS App Store, Mac App Store, Google Play, and Microsoft Store with the correct certificates."
 ---
@@ -8,7 +8,7 @@ The `fyne release` subcommand is the final step before submitting your applicati
 
 ## Overview of `fyne release`
 
-`fyne release` is a superset of `fyne package`. It sets the `-release` flag internally (which disables debug symbols and enables release-mode metadata), then performs additional signing steps after the package is built. Both `-appVersion` and `-appBuild` are **required** for all mobile and Windows targets.
+`fyne release` is a superset of `fyne package`. It sets the `-release` flag internally (which disables debug symbols and enables release-mode metadata), then performs additional signing steps after the package is built. Both `-appVersion` and `-appBuild` are **required** for mobile (Android and iOS) and Windows targets.
 
 ```bash
 fyne release -os <platform> [signing flags] -appID <id> -appVersion <x.y.z> -appBuild <n>
@@ -163,7 +163,7 @@ fyne release -os <platform> [signing flags] -appID <id> -appVersion <x.y.z> -app
 
 ## Version management
 
-Both `-appVersion` and `-appBuild` are required by every store platform. Use them consistently:
+Both `-appVersion` and `-appBuild` are required for mobile (Android, iOS) and Windows targets. They are strongly recommended for macOS as well. Use them consistently:
 
 | Flag | Format | Example | Purpose |
 |---|---|---|---|

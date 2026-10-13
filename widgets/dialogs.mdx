@@ -1,5 +1,5 @@
 ---
-title: "Dialogs: File Picker, Color, Forms, and More"
+title: "Fyne Dialog Package: File, Color, Confirm, and Custom"
 sidebarTitle: "Dialogs"
 description: "Complete reference for Fyne's dialog package — information, error, confirm, custom, form, file open/save, folder, color picker, and progress dialogs."
 ---
@@ -329,7 +329,7 @@ func NewColorPicker(title, message string, callback func(color.Color), parent fy
 ## Progress dialogs
 
 <Warning>
-Both `NewProgress` and `NewProgressInfinite` are **deprecated** as of Fyne 2. Use `dialog.NewCustomWithoutButtons` with a `widget.ProgressBar` or `widget.ProgressBarInfinite` instead.
+Both `NewProgress` and `NewProgressInfinite` are **deprecated**. Use `dialog.NewCustomWithoutButtons` with a `widget.ProgressBar` or `widget.ProgressBarInfinite` instead.
 </Warning>
 
 ### Determinate progress (deprecated)

@@ -1,5 +1,5 @@
 ---
-title: "Fyne Widget Library Overview"
+title: "Fyne Widget Library: Overview and Widget Architecture"
 sidebarTitle: "Overview"
 description: "Explore Fyne's built-in widget library: input controls, display elements, collection views, and dialogs for building cross-platform GUI apps."
 ---
@@ -65,13 +65,14 @@ func NewMyWidget(label string) *MyWidget {
 
 ### Widget rendering model
 
-```
+```text
 Widget struct
   └─ CreateRenderer() fyne.WidgetRenderer
         ├─ Objects() []fyne.CanvasObject   ← what gets drawn
         ├─ Layout(fyne.Size)               ← positions & resizes objects
         ├─ MinSize() fyne.Size
-        └─ Refresh()                       ← syncs widget state → canvas
+        ├─ Refresh()                       ← syncs widget state → canvas
+        └─ Destroy()                       ← cleanup when renderer is released
 ```
 
 The renderer pattern means Fyne can pool and reuse renderers for collection widgets (List, Table, Tree, GridWrap) — only the *visible* rows are ever rendered.

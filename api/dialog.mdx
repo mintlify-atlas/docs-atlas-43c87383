@@ -1,7 +1,7 @@
 ---
-title: "Dialog Package — Fyne API Reference"
-sidebarTitle: "dialog"
-description: "API reference for the Fyne dialog package: information, error, confirm, form, file pickers, color picker, and progress dialogs with full signatures."
+title: "Fyne Dialog Package — Full API Reference"
+sidebarTitle: "Dialogs"
+description: "API reference for the Fyne dialog package in v2: information, error, confirm, form, file pickers, color picker, and progress dialogs with full signatures."
 ---
 
 The `dialog` package provides ready-made modal dialog windows that overlay a parent `fyne.Window`. All dialogs are non-blocking by default — they accept a callback that fires when the user dismisses or confirms. Use the `Show*` convenience functions for one-liner dialogs, or the `New*` constructors when you need to configure a dialog before showing it.
@@ -105,7 +105,7 @@ dialog.ShowConfirm("Delete file?", "This cannot be undone.", func(ok bool) {
 ### `NewCustom`
 
 ```go
-func NewCustom(title, dismiss string, content fyne.CanvasObject, parent fyne.Window) Dialog
+func NewCustom(title, dismiss string, content fyne.CanvasObject, parent fyne.Window) *CustomDialog
 ```
 
 A dialog with a title bar, custom content, and a single labelled dismiss button.
@@ -113,7 +113,7 @@ A dialog with a title bar, custom content, and a single labelled dismiss button.
 ### `NewCustomWithoutButtons`
 
 ```go
-func NewCustomWithoutButtons(title string, content fyne.CanvasObject, parent fyne.Window) Dialog
+func NewCustomWithoutButtons(title string, content fyne.CanvasObject, parent fyne.Window) *CustomDialog
 ```
 
 Like `NewCustom` but with no buttons. You are responsible for calling `Hide()` or `Dismiss()`.
@@ -290,7 +290,7 @@ A determinate progress dialog. Set `progress.SetValue(0.0...1.0)` to update the 
 ### `NewProgressInfinite`
 
 ```go
-func NewProgressInfinite(title, message string, parent fyne.Window) *InfiniteProgressDialog
+func NewProgressInfinite(title, message string, parent fyne.Window) *ProgressInfiniteDialog
 ```
 
 An indeterminate progress dialog with a spinning bar. Starts animating automatically on `Show()`. Call `Hide()` when the background work completes.

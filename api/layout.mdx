@@ -1,7 +1,7 @@
 ---
-title: "Layout Package — Fyne API Reference"
-sidebarTitle: "layout"
-description: "Reference for the Fyne layout system: fyne.Layout interface, fyne.Size, fyne.Position, built-in layouts, layout.NewSpacer, and custom layout patterns."
+title: "Fyne Layout Package — Full API Reference"
+sidebarTitle: "Layouts"
+description: "Fyne v2 layout system: fyne.Layout interface, fyne.Size, fyne.Position, built-in layout types, layout.NewSpacer, and custom layout implementation guide."
 ---
 
 Layouts determine how child objects inside a `fyne.Container` are positioned and sized. Fyne separates layout logic from widget rendering: a container holds a slice of `fyne.CanvasObject` children and delegates all measurement and placement to an attached `fyne.Layout`. The `container` package provides factory functions that pair a container with a layout in a single call (e.g. `container.NewHBox`); you generally access the `layout` package directly only when building custom layouts or using `layout.NewSpacer`.
@@ -122,7 +122,7 @@ Switches between column count (landscape) and row count (portrait) on device rot
 ## `layout.NewSpacer`
 
 ```go
-func NewSpacer() *Spacer
+func NewSpacer() fyne.CanvasObject
 ```
 
 Returns a flexible blank space object. Inside an `HBox`, a spacer expands horizontally to consume all available slack. Inside a `VBox`, it expands vertically. Placing spacers between items achieves alignment effects similar to CSS `justify-content`.

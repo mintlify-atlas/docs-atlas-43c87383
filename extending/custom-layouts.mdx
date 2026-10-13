@@ -1,7 +1,7 @@
 ---
-title: "Implement Custom Layouts in Fyne"
+title: "Implement Custom Container Layouts in Fyne Applications"
 sidebarTitle: "Custom Layouts"
-description: "Learn how to implement the fyne.Layout interface to position and size child objects in a Fyne container using your own algorithm."
+description: "Learn how to implement the fyne.Layout interface to position and size child objects inside a Fyne container using your own placement algorithm."
 ---
 
 Fyne ships with a rich set of built-in layouts — `HBox`, `VBox`, `Grid`, `Border`, `Form`, and more — but real-world UIs occasionally need placement logic that none of them cover. By implementing the `fyne.Layout` interface you can take full control over where every child object is placed and how much space the container needs, while remaining a first-class participant in Fyne's resize and refresh lifecycle.

@@ -1,5 +1,5 @@
 ---
-title: "Package and Install Fyne Apps for Desktop"
+title: "Packaging Fyne Desktop Apps for Windows, macOS, Linux"
 sidebarTitle: "Desktop"
 description: "Learn how to package Fyne apps for Windows, macOS, and Linux using the fyne CLI — producing native bundles, installers, and embedded resources."
 ---
@@ -96,7 +96,10 @@ Run `fyne package` from the root of your Go module. The tool reads your `FyneApp
     Categories  = ["Graphics"]
     Comment     = "A simple image editor built with Fyne."
     Keywords    = ["image", "editor"]
+    ExecParams  = "--open %f"
     ```
+
+    The `ExecParams` field appends extra arguments to the `Exec=` line in the generated `.desktop` file, useful for passing file-open placeholders.
   </Tab>
 </Tabs>
 
@@ -194,6 +197,8 @@ fyne bundle -o bundled.go assets/
 Place a `FyneApp.toml` file in the root of your Go module to centralise all packaging metadata. The `fyne` CLI reads this file automatically — you no longer need to pass `-appID`, `-appVersion`, or `-name` on every command invocation.
 
 ```toml
+Website = "https://example.com"
+
 [Details]
 Icon    = "Icon.png"
 Name    = "My App"

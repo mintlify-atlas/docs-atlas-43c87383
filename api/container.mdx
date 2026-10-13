@@ -1,7 +1,7 @@
 ---
-title: "Container Package — Fyne API Reference"
-sidebarTitle: "container"
-description: "Reference for Fyne container constructors: border, grid, HBox, VBox, stack, tabs, scroll, split, and navigation containers with layout examples."
+title: "Fyne Container Package — Full API Reference"
+sidebarTitle: "Containers"
+description: "Reference for Fyne container constructors in v2: border, grid, HBox, VBox, stack, tabs, scroll, split, and navigation containers with layout examples."
 ---
 
 The `container` package provides factory functions that pair a `fyne.Container` with a pre-configured layout. Containers are the primary tool for composing widget trees. Each `New*` function wraps the underlying `layout` constructors so you rarely need to call the `layout` package directly. Containers hold a slice of `fyne.CanvasObject` children; the active layout dictates their positions and sizes at render time.
@@ -250,9 +250,9 @@ func NewTabItemWithIcon(text string, icon fyne.Resource, content fyne.CanvasObje
 
 ```go
 const (
-    TabLocationTop    TabLocation = iota // default
-    TabLocationBottom
+    TabLocationTop      TabLocation = iota // default
     TabLocationLeading
+    TabLocationBottom
     TabLocationTrailing
 )
 ```
@@ -263,7 +263,7 @@ tabs := container.NewAppTabs(
     container.NewTabItemWithIcon("Settings", theme.SettingsIcon(), settingsContent),
 )
 tabs.SetTabLocation(container.TabLocationLeading)
-tabs.OnChanged = func(tab *container.TabItem) {
+tabs.OnSelected = func(tab *container.TabItem) {
     fmt.Println("switched to", tab.Text)
 }
 ```

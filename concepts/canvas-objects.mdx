@@ -1,7 +1,7 @@
 ---
-title: "Canvas Objects and Drawing in Fyne"
+title: "Fyne Canvas Objects: Drawing Primitives and Animations"
 sidebarTitle: "Canvas Objects"
-description: "Explore Fyne's CanvasObject interface, the Canvas API, and every primitive drawing type — rectangles, text, images, gradients, rasters, and animations."
+description: "Explore Fyne's CanvasObject interface, the Canvas API, and primitive drawing types — rectangles, text, images, gradients, rasters, and animations."
 ---
 
 Everything visible in a Fyne window is a `CanvasObject` — the single interface that unifies widgets, containers, and raw drawing primitives. The `canvas` package provides the low-level building blocks: solid shapes, images, text, gradients, pixel-by-pixel rasters, and smooth animations. Mastering these primitives gives you complete control over how your application looks and moves.
@@ -190,8 +190,8 @@ txt.FontSource = resourceMyFontTtf
         color.RGBA{R: 0xFF, G: 0x92, B: 0x00, A: 0xFF},
     )
 
-    // Custom angle (0° = vertical, 90° = horizontal)
-    grad := canvas.NewLinearGradient(startCol, endCol, 45)
+    // Angle: 0 = vertical (top→bottom), 90 = horizontal (left→right)
+    grad := canvas.NewLinearGradient(startCol, endCol, 90)
     ```
   </Tab>
   <Tab title="Radial Gradient">

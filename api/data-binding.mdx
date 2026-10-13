@@ -1,7 +1,7 @@
 ---
-title: "Data Binding — Fyne API Reference"
-sidebarTitle: "data/binding"
-description: "Fyne data binding API: DataItem, typed binding constructors, external bindings, preference bindings, converters, and list/map binding operations."
+title: "Fyne Data Binding — Reactive State API v2"
+sidebarTitle: "Data Binding"
+description: "Fyne v2 data binding API: DataItem, typed binding constructors, external bindings, preference bindings, converters, and list/map binding operations."
 ---
 
 The `data/binding` package makes widget state reactive. A binding is a thread-safe container for a typed value that notifies registered listeners whenever the value changes. Widgets that accept a binding (e.g. `widget.NewLabelWithData`, `widget.NewEntryWithData`) automatically update their display when the bound value changes, and write back to the binding when the user edits the widget. All binding APIs are safe to call from any goroutine.
@@ -75,7 +75,7 @@ An `Item` backed by an external variable pointer. Call `Reload()` after mutating
 | `String` | `Item[string]` | `NewString() String` | `BindString(v *string) ExternalString` |
 | `Bytes` | `Item[[]byte]` | `NewBytes() Bytes` | `BindBytes(v *[]byte) ExternalBytes` |
 | `URI` | `Item[fyne.URI]` | `NewURI() URI` | `BindURI(v *fyne.URI) ExternalURI` |
-| `Untyped` | `Item[any]` | `NewUntyped() Untyped` | `BindUntyped(v any) ExternalUntyped` |
+| `Untyped` | `Item[any]` | `NewUntyped() Untyped` | `BindUntyped(v any) ExternalUntyped` _(takes non-pointer `any`)_ |
 
 ```go
 // Internally managed

@@ -1,7 +1,7 @@
 ---
-title: "Canvas Package — Fyne API Reference"
-sidebarTitle: "canvas"
-description: "API reference for Fyne canvas primitives: Rectangle, Circle, Line, Image, Text, Raster, gradients, animations, and ImageFillMode constants."
+title: "Fyne Canvas Package — Drawing Primitives API"
+sidebarTitle: "Canvas"
+description: "API reference for Fyne canvas primitives in v2: Rectangle, Circle, Line, Image, Text, Raster, gradients, animations, and ImageFillMode constants."
 ---
 
 The `canvas` package contains the low-level drawing primitives that all Fyne widgets are built from. Unlike widgets, canvas objects hold no interactive state — they are purely visual. You can compose them directly inside a `fyne.Container` with `NewWithoutLayout`, or use them as building blocks inside a custom `fyne.WidgetRenderer`. After mutating any field, call the object's `Refresh()` method (or `canvas.Refresh(obj)`) to schedule a repaint.
@@ -270,26 +270,27 @@ func NewBlur(radius float32) *Blur
 
 ---
 
-## `canvas.BezierCurve` *(Since 2.9)*
+## `canvas.BezierCurve` *(Since 2.8)*
 
-A cubic Bézier curve defined by two anchor points and two control points.
+A Bézier curve supporting linear (0 control points), quadratic (1 control point), and cubic (2 control points) variants. Points are relative to the object's top-left origin.
 
 ```go
 type BezierCurve struct {
-    Position1   fyne.Position
-    Position2   fyne.Position
-    Control1    fyne.Position
-    Control2    fyne.Position
-    StrokeColor color.Color
-    StrokeWidth float32
+    StartPoint    fyne.Position
+    EndPoint      fyne.Position
+    ControlPoints []fyne.Position // 0=linear, 1=quadratic, 2=cubic
+    StrokeColor   color.Color
+    StrokeWidth   float32
 }
 
-func NewBezierCurve(start, end fyne.Position) *BezierCurve
+func NewLinearBezierCurve(startPoint, endPoint fyne.Position, c color.Color) *BezierCurve
+func NewQuadraticBezierCurve(startPoint, controlPoint, endPoint fyne.Position, c color.Color) *BezierCurve
+func NewCubicBezierCurve(startPoint, controlPoint1, controlPoint2, endPoint fyne.Position, c color.Color) *BezierCurve
 ```
 
 ---
 
-## `canvas.Ellipse` *(Since 2.9)*
+## `canvas.Ellipse` *(Since 2.8)*
 
 A filled and/or stroked ellipse.
 
@@ -300,12 +301,12 @@ type Ellipse struct {
     StrokeWidth float32
 }
 
-func NewEllipse(color color.Color) *Ellipse
+func NewEllipse(c color.Color) *Ellipse
 ```
 
 ---
 
-## `canvas.ArbitraryPolygon` *(Since 2.9)*
+## `canvas.ArbitraryPolygon` *(Since 2.8)*
 
 A filled and/or stroked polygon defined by an arbitrary list of vertices.
 
@@ -317,24 +318,26 @@ type ArbitraryPolygon struct {
     StrokeWidth float32
 }
 
-func NewArbitraryPolygon(points []fyne.Position, color color.Color) *ArbitraryPolygon
+func NewArbitraryPolygon(points []fyne.Position, fill color.Color) *ArbitraryPolygon
 ```
 
 ---
 
-## `canvas.RegularPolygon` *(Since 2.9)*
+## `canvas.RegularPolygon` *(Since 2.8)*
 
-A regular n-sided polygon.
+A regular n-sided polygon rendered centered within its allocated space.
 
 ```go
 type RegularPolygon struct {
-    Sides       int
-    FillColor   color.Color
-    StrokeColor color.Color
-    StrokeWidth float32
+    FillColor    color.Color
+    StrokeColor  color.Color
+    StrokeWidth  float32
+    CornerRadius float32
+    Angle        float32 // degrees; positive = clockwise
+    Sides        uint
 }
 
-func NewRegularPolygon(sides int, color color.Color) *RegularPolygon
+func NewRegularPolygon(sides uint, c color.Color) *RegularPolygon
 ```
 
 ---
@@ -378,6 +381,14 @@ func NewPositionAnimation(
 ```
 
 Interpolates between two `fyne.Position` values.
+
+### `NewShaderAnimation` *(Since 2.8)*
+
+```go
+func NewShaderAnimation(s *Shader) *fyne.Animation
+```
+
+Continuously redraws the given `*Shader`, advancing its `"time"` uniform each frame so the fragment shader can produce motion. Call `Start()` to begin and `Stop()` to freeze. Resuming after `Stop()` continues from where playback left off without counting the paused interval.
 
 ### `fyne.Animation`
 
