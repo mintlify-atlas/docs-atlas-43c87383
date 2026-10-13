@@ -1,0 +1,443 @@
+---
+title: "Widget Package — Fyne API Reference"
+sidebarTitle: "widget"
+description: "Full reference for the Fyne widget package: buttons, inputs, labels, lists, tables, and custom widget extension with BaseWidget."
+---
+
+The `widget` package provides the standard library of ready-made UI components for Fyne applications. Every widget is a `fyne.Widget`, which in turn extends `fyne.CanvasObject`, giving it a position, size, visibility, and a renderer. Widgets are composable and can be placed inside containers with any layout. For creating custom widgets, embed `widget.BaseWidget` and implement `CreateRenderer`.
+
+```go
+import "fyne.io/fyne/v2/widget"
+```
+
+---
+
+## `fyne.Widget` Interface
+
+```go
+type Widget interface {
+    CanvasObject
+    CreateRenderer() WidgetRenderer
+}
+```
+
+`CanvasObject` adds `MinSize()`, `Resize()`, `Move()`, `Position()`, `Size()`, `Visible()`, `Show()`, `Hide()`, and `Refresh()`.
+
+## `fyne.WidgetRenderer` Interface
+
+```go
+type WidgetRenderer interface {
+    Destroy()
+    Layout(Size)
+    MinSize() Size
+    Objects() []CanvasObject
+    Refresh()
+}
+```
+
+Renderers are internal. Each in-memory widget has exactly one renderer created by `CreateRenderer()`. Use `widget.NewSimpleRenderer` for single-object custom widgets.
+
+```go
+func NewSimpleRenderer(object fyne.CanvasObject) fyne.WidgetRenderer
+```
+
+---
+
+## `BaseWidget`
+
+`BaseWidget` is the recommended foundation for custom widgets. Embed it in your struct and call `ExtendBaseWidget` in your constructor.
+
+```go
+type BaseWidget struct {
+    Hidden bool
+    // contains unexported fields
+}
+```
+
+### Methods on `BaseWidget`
+
+| Method | Description |
+|--------|-------------|
+| `ExtendBaseWidget(wid fyne.Widget)` | Registers the outer widget so the base can delegate refresh and layout calls. Call once in your constructor. |
+| `Size() fyne.Size` | Returns the current size. |
+| `Resize(size fyne.Size)` | Updates the size and triggers a layout pass. |
+| `Position() fyne.Position` | Returns the current position. |
+| `Move(pos fyne.Position)` | Moves the widget and requests a repaint. |
+| `MinSize() fyne.Size` | Delegates to the renderer's `MinSize()`. |
+| `Visible() bool` | Returns `!Hidden`. |
+| `Show()` | Sets `Hidden = false` and triggers a refresh. |
+| `Hide()` | Sets `Hidden = true` and triggers a refresh. |
+| `Refresh()` | Asks the renderer to redraw with current state. |
+| `Theme() fyne.Theme` | Returns the effective theme for this widget. *(Since 2.5)* |
+
+```go
+type MyWidget struct {
+    widget.BaseWidget
+    Label string
+}
+
+func NewMyWidget(label string) *MyWidget {
+    w := &MyWidget{Label: label}
+    w.ExtendBaseWidget(w)
+    return w
+}
+
+func (w *MyWidget) CreateRenderer() fyne.WidgetRenderer {
+    lbl := widget.NewLabel(w.Label)
+    return widget.NewSimpleRenderer(lbl)
+}
+```
+
+### `DisableableWidget`
+
+Embeds `BaseWidget` and adds enable/disable state:
+
+```go
+type DisableableWidget struct {
+    BaseWidget
+}
+func (w *DisableableWidget) Enable()
+func (w *DisableableWidget) Disable()
+func (w *DisableableWidget) Disabled() bool
+```
+
+### `Orientation` Constants
+
+```go
+const (
+    Horizontal Orientation = 0
+    Vertical   Orientation = 1
+    Adaptive   Orientation = 2  // Since: 2.5
+)
+```
+
+---
+
+## Input Widgets
+
+### `Button`
+
+```go
+func NewButton(label string, tapped func()) *Button
+func NewButtonWithIcon(label string, icon fyne.Resource, tapped func()) *Button
+```
+
+A tappable button with optional icon. Set `Importance` to control visual emphasis:
+`LowImportance`, `MediumImportance` (default), `HighImportance`, `DangerImportance`, `WarningImportance`, `SuccessImportance`.
+
+```go
+btn := widget.NewButtonWithIcon("Save", theme.DocumentSaveIcon(), func() {
+    fmt.Println("saved")
+})
+btn.Importance = widget.HighImportance
+```
+
+### `Entry`
+
+```go
+func NewEntry() *Entry
+func NewEntryWithData(data binding.String) *Entry
+func NewMultiLineEntry() *Entry
+```
+
+Single-line text input. Set `PlaceHolder`, `OnChanged`, `OnSubmitted`, `Validator`, and `MultiLine`.
+
+### `PasswordEntry`
+
+```go
+func NewPasswordEntry() *Entry
+```
+
+An `Entry` with masked text and a toggle visibility button.
+
+### `Select`
+
+```go
+func NewSelect(options []string, changed func(string)) *Select
+```
+
+A drop-down selector. `PlaceHolder` can be set for empty state. `SetSelected` and `Selected` manage the current value.
+
+### `SelectEntry`
+
+```go
+func NewSelectEntry(options []string) *SelectEntry
+```
+
+Combines a free-text `Entry` with a dropdown of suggestions.
+
+### `Check`
+
+```go
+func NewCheck(label string, changed func(bool)) *Check
+func NewCheckWithData(label string, data binding.Bool) *Check
+```
+
+A labelled checkbox. Read/write `Checked` field or use `SetChecked`.
+
+### `CheckGroup`
+
+```go
+func NewCheckGroup(options []string, changed func([]string)) *CheckGroup
+```
+
+A group of checkboxes. `Selected` holds the currently checked option labels.
+
+### `RadioGroup`
+
+```go
+func NewRadioGroup(options []string, changed func(string)) *RadioGroup
+```
+
+Mutually exclusive radio buttons. Set `Horizontal` to arrange them in a row.
+
+### `Slider`
+
+```go
+func NewSlider(min, max float64) *Slider
+func NewSliderWithData(min, max float64, data binding.Float) *Slider
+```
+
+A draggable value slider. Configure `Step` and `Orientation`. `OnChanged` fires on each drag step.
+
+### `Form`
+
+```go
+func NewForm(items ...*FormItem) *Form
+```
+
+A two-column label/widget layout. Use `Append(label, widget)` to add rows. `OnSubmit` and `OnCancel` wire up action buttons. `Validate()` runs all item validators.
+
+```go
+form := widget.NewForm(
+    widget.NewFormItem("Name", widget.NewEntry()),
+    widget.NewFormItem("Age",  widget.NewEntry()),
+)
+form.OnSubmit = func() { fmt.Println("submitted") }
+```
+
+---
+
+## Display Widgets
+
+### `Label`
+
+```go
+func NewLabel(text string) *Label
+func NewLabelWithData(data binding.String) *Label
+func NewLabelWithStyle(text string, alignment fyne.TextAlign, style fyne.TextStyle) *Label
+func NewLabelWithWrapping(text string, wrap fyne.TextWrap) *Label
+```
+
+Read-only text. Set `Wrapping`, `Alignment`, `TextStyle`, and `Truncation`.
+
+### `Icon`
+
+```go
+func NewIcon(res fyne.Resource) *Icon
+```
+
+Displays a vector or raster resource at the theme's inline icon size.
+
+### `Hyperlink`
+
+```go
+func NewHyperlink(text string, url *url.URL) *Hyperlink
+func NewHyperlinkWithStyle(text string, url *url.URL, alignment fyne.TextAlign, style fyne.TextStyle) *Hyperlink
+```
+
+Tappable hyperlink that opens a URL via `App.OpenURL`.
+
+### `RichText`
+
+```go
+func NewRichText(segments ...RichTextSegment) *RichText
+func NewRichTextFromMarkdown(content string) *RichText
+func NewRichTextWithText(content string) *RichText
+```
+
+Rich-formatted text supporting markdown, inline styles, hyperlinks, and images.
+
+### `Accordion`
+
+```go
+func NewAccordion(items ...*AccordionItem) *Accordion
+func NewAccordionItem(title string, detail fyne.CanvasObject) *AccordionItem
+```
+
+Collapsible sections. Call `Open(index)`, `Close(index)`, or `CloseAll()`.
+
+### `Card`
+
+```go
+func NewCard(title, subtitle string, content fyne.CanvasObject) *Card
+```
+
+A visually grouped content area with optional title, subtitle, and header image.
+
+### `Separator`
+
+```go
+func NewSeparator() *Separator
+```
+
+A thin horizontal line used to divide content regions.
+
+### `ProgressBar`
+
+```go
+func NewProgressBar() *ProgressBar
+func NewProgressBarWithData(data binding.Float) *ProgressBar
+```
+
+Displays a 0.0–1.0 progress fraction. Set `Min`, `Max`, and `Value`.
+
+### `ProgressBarInfinite`
+
+```go
+func NewProgressBarInfinite() *ProgressBarInfinite
+```
+
+An animated progress bar for indeterminate operations. Starts automatically when shown.
+
+### `Activity`
+
+```go
+func NewActivity() *Activity
+```
+
+A small animated spinner for lightweight loading indicators. *(Since 2.5)*
+
+### `Toolbar`
+
+```go
+func NewToolbar(items ...ToolbarItem) *Toolbar
+```
+
+A row of icon buttons, separators, and spacers. Create items with `NewToolbarAction`, `NewToolbarSeparator`, and `NewToolbarSpacer`.
+
+---
+
+## Collection Widgets
+
+### `List`
+
+```go
+func NewList(
+    length func() int,
+    createItem func() fyne.CanvasObject,
+    updateItem func(id ListItemID, item fyne.CanvasObject),
+) *List
+```
+
+A virtualized vertical list. Only visible rows are rendered. `OnSelected` / `OnUnselected` callbacks receive the item index. `Select(id)` / `Unselect(id)` control selection.
+
+### `Table`
+
+```go
+func NewTable(
+    length func() (rows, cols int),
+    createCell func() fyne.CanvasObject,
+    updateCell func(id TableCellID, cell fyne.CanvasObject),
+) *Table
+```
+
+A virtualized grid of rows and columns. `SetColumnWidth` and `SetRowHeight` fix dimensions. `OnSelected` receives `TableCellID{Row, Col}`.
+
+### `Tree`
+
+```go
+func NewTree(
+    childUIDs func(uid TreeNodeID) []TreeNodeID,
+    isBranch func(uid TreeNodeID) bool,
+    createNode func(branch bool) fyne.CanvasObject,
+    updateNode func(uid TreeNodeID, branch bool, node fyne.CanvasObject),
+) *Tree
+```
+
+A hierarchical tree view. `OpenBranch(uid)` / `CloseBranch(uid)` expand or collapse nodes.
+
+### `GridWrap`
+
+```go
+func NewGridWrap(
+    length func() int,
+    createItem func() fyne.CanvasObject,
+    updateItem func(id GridWrapItemID, item fyne.CanvasObject),
+) *GridWrap
+```
+
+A wrapping grid of equal-sized cells that flows onto new rows. *(Since 2.4)*
+
+---
+
+## Overlay Widgets
+
+### `PopUp`
+
+```go
+func NewPopUp(content fyne.CanvasObject, canvas fyne.Canvas) *PopUp
+func ShowPopUp(content fyne.CanvasObject, canvas fyne.Canvas)
+func ShowPopUpAtPosition(content fyne.CanvasObject, canvas fyne.Canvas, pos fyne.Position)
+```
+
+A floating overlay anchored to a canvas. Dismissed when the user taps outside.
+
+### `ModalPopUp`
+
+```go
+func NewModalPopUp(content fyne.CanvasObject, canvas fyne.Canvas) *PopUp
+func ShowModalPopUp(content fyne.CanvasObject, canvas fyne.Canvas)
+```
+
+Like `PopUp` but blocks interaction with content behind it.
+
+### `Menu`
+
+```go
+func NewMenu(menu *fyne.Menu) *Menu
+```
+
+Renders a `fyne.Menu` tree as an interactive widget. Usually displayed inside a `PopUpMenu`.
+
+### `PopUpMenu`
+
+```go
+func NewPopUpMenu(menu *fyne.Menu, canvas fyne.Canvas) *PopUpMenu
+func ShowPopUpMenuAtPosition(menu *fyne.Menu, canvas fyne.Canvas, pos fyne.Position)
+```
+
+A popup menu anchored to a position, e.g. on right-click.
+
+---
+
+## Date / Calendar Widgets
+
+### `Calendar`
+
+```go
+func NewCalendar(cT time.Time, onSelected func(time.Time)) *Calendar
+```
+
+A monthly calendar grid. `onSelected` fires when the user taps a date. *(Since 2.6)*
+
+### `DateEntry`
+
+```go
+func NewDateEntry() *DateEntry
+```
+
+A text entry styled for date input with an attached calendar pop-up. *(Since 2.6)*
+
+---
+
+## Text Grid
+
+### `TextGrid`
+
+```go
+func NewTextGrid() *TextGrid
+func NewTextGridFromString(content string) *TextGrid
+```
+
+A fixed-width text display with per-cell styling. Useful for terminal emulators, code views, and hex editors. Call `SetText(string)`, `SetRow(row, TextGridRow)`, or individual `SetCell(row, col, TextGridCell)`.

@@ -1,0 +1,116 @@
+{
+  "projectType": "framework",
+  "projectName": "Fyne",
+  "projectDescription": "A cross-platform GUI toolkit and app API written in Go for building desktop and mobile applications from a single codebase.",
+  "theme": "palm",
+  "primaryColor": "#22c55e",
+  "lightColor": "#0465ed",
+  "darkColor": "#04126e",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "prerequisites"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/app-and-windows",
+              "concepts/canvas-objects",
+              "concepts/layouts",
+              "concepts/data-binding",
+              "concepts/theming"
+            ]
+          },
+          {
+            "group": "Widgets",
+            "pages": [
+              "widgets/overview",
+              "widgets/input",
+              "widgets/display",
+              "widgets/collections",
+              "widgets/dialogs"
+            ]
+          },
+          {
+            "group": "Packaging & Distribution",
+            "pages": [
+              "packaging/desktop",
+              "packaging/mobile",
+              "packaging/release"
+            ]
+          },
+          {
+            "group": "Extending Fyne",
+            "pages": [
+              "extending/custom-widgets",
+              "extending/custom-layouts",
+              "extending/custom-themes",
+              "extending/localization"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Packages",
+            "pages": [
+              "api/app",
+              "api/widget",
+              "api/container",
+              "api/canvas",
+              "api/dialog",
+              "api/layout",
+              "api/data-binding",
+              "api/storage",
+              "api/theme"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Single-codebase desktop and mobile apps (Windows, macOS, Linux, Android, iOS, WebAssembly)",
+    "Rich widget library: Button, Entry, Label, List, Table, Tree, RichText, Form, Select, Slider, and more",
+    "Reactive data binding system for automatic UI updates",
+    "Flexible layout system: VBox, HBox, Grid, Border, Stack, AdaptiveGrid, and custom layouts",
+    "Customizable theming with built-in light/dark variants and full custom theme support",
+    "Dialogs for file, color, form, confirmation, and information",
+    "Canvas primitives: Rectangle, Circle, Line, Image, Raster, Gradient, Blur, BezierCurve, Polygon",
+    "Internationalization and localization via the lang package",
+    "Animation API for UI transitions and effects",
+    "fyne CLI tool for packaging, bundling, and installing applications"
+  ],
+  "publicApiSurface": [
+    "app.New() fyne.App",
+    "app.NewWithID(id string) fyne.App",
+    "fyne.App interface (NewWindow, Run, Quit, Preferences, Settings, etc.)",
+    "fyne.Window interface (SetContent, ShowAndRun, Resize, SetTitle, etc.)",
+    "widget.NewButton, widget.NewLabel, widget.NewEntry, widget.NewSelect, widget.NewSlider",
+    "widget.NewList, widget.NewTable, widget.NewTree, widget.NewGridWrap",
+    "widget.NewForm, widget.NewCheck, widget.NewRadioGroup, widget.NewProgressBar",
+    "widget.NewRichText, widget.NewRichTextFromMarkdown, widget.NewRichTextEntry",
+    "widget.NewAccordion, widget.NewCard, widget.NewToolbar, widget.NewSeparator",
+    "container.NewVBox, container.NewHBox, container.NewGridWithColumns, container.NewBorder",
+    "container.NewStack, container.NewCenter, container.NewMax, container.NewPadded",
+    "container.NewAppTabs, container.NewDocTabs, container.NewScroll, container.NewSplit",
+    "canvas.NewRectangle, canvas.NewCircle, canvas.NewLine, canvas.NewImage, canvas.NewText",
+    "canvas.NewGradient, canvas.NewRaster, canvas.NewBlur, canvas.NewBezierCurve",
+    "dialog.ShowInformation, dialog.ShowError, dialog.ShowConfirm, dialog.ShowFileOpen",
+    "dialog.ShowFileSave, dialog.ShowColorPicker, dialog.ShowForm",
+    "data/binding: NewString, NewFloat, NewBool, NewInt, BindPreferenceString, etc.",
+    "theme.Theme interface (Color, Font, Icon, Size)",
+    "storage.NewFileURI, storage.OpenFileFromURI, storage.WriteFileFromURI",
+    "lang.L (Localize), lang.X (LocalizeKey), lang.AddTranslationsFS"
+  ]
+}

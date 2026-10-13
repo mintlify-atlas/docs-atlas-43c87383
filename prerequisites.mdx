@@ -1,0 +1,235 @@
+---
+title: "Prerequisites for Building Fyne Apps"
+sidebarTitle: "Prerequisites"
+description: "Everything you need before writing your first Fyne app: Go 1.22+, a C compiler, platform SDK headers, and the optional fyne CLI tool."
+---
+
+Fyne uses CGo to talk to each platform's native graphics and windowing APIs, so you need more than just Go before you can compile your first app. This page walks through the exact tools required on every supported platform so you can get your environment ready before following the [Quickstart](/quickstart) guide.
+
+## Go version
+
+Fyne requires **Go 1.22 or later**. Check what you have installed with:
+
+```bash
+go version
+```
+
+If you need to install or upgrade Go, download the official installer for your platform from [go.dev/dl](https://go.dev/dl/).
+
+## Why Fyne needs a C compiler
+
+Fyne's rendering layer (OpenGL / Metal / WebGL) is accessed via CGo — Go's built-in mechanism for calling C code. Without a working C compiler on your `PATH`, the `go build` and `go run` commands will fail with a CGo-related error. The specific compiler and libraries required differ by operating system, as detailed below.
+
+<Note>
+  WebAssembly is the one target that does **not** require a C compiler. All other platforms need CGo enabled.
+</Note>
+
+## Platform setup
+
+<Tabs>
+  <Tab title="Windows">
+    Windows does not ship with a C compiler. You need to install one of the following toolchains and ensure it is on your `PATH`.
+
+    **Option A — TDM-GCC (recommended for beginners)**
+
+    1. Download the TDM-GCC installer from [jmeubank.github.io/tdm-gcc](https://jmeubank.github.io/tdm-gcc/).
+    2. Run the installer and accept the default options. TDM-GCC automatically adds `gcc` to your `PATH`.
+    3. Verify:
+
+    ```bash
+    gcc --version
+    ```
+
+    **Option B — MSYS2 / MinGW-w64**
+
+    1. Install MSYS2 from [msys2.org](https://www.msys2.org/).
+    2. Open the MSYS2 terminal and run:
+
+    ```bash
+    pacman -S mingw-w64-x86_64-gcc
+    ```
+
+    3. Add `C:\msys64\mingw64\bin` to your Windows `PATH` environment variable.
+
+    <Note>
+      The first Fyne build on Windows can take up to 10 minutes because CGo must compile the OpenGL bindings from source. Subsequent builds are fast.
+    </Note>
+  </Tab>
+
+  <Tab title="macOS">
+    macOS ships with `clang` as its system C compiler, but it is only activated after you install the Xcode Command Line Tools.
+
+    1. Open a terminal and run:
+
+    ```bash
+    xcode-select --install
+    ```
+
+    2. Follow the on-screen prompts. The installation downloads roughly 400 MB.
+    3. Verify the compiler is available:
+
+    ```bash
+    clang --version
+    ```
+
+    <Tip>
+      If you already have the full Xcode IDE installed, the Command Line Tools are included and you do not need to run the command above.
+    </Tip>
+
+    You do **not** need to install Mesa or any additional graphics libraries — Fyne uses the Metal API on Apple Silicon and OpenGL on Intel Macs, both of which ship with macOS.
+  </Tab>
+
+  <Tab title="Linux">
+    Linux distributions vary, but the pattern is the same: install Go, `gcc`, and the X11/Wayland development headers. Use your distribution's package manager.
+
+    **Debian / Ubuntu / Linux Mint**
+
+    ```bash
+    sudo apt update
+    sudo apt install golang gcc libgl1-mesa-dev xorg-dev
+    ```
+
+    **Fedora / RHEL / CentOS**
+
+    ```bash
+    sudo dnf install golang gcc mesa-libGL-devel libX11-devel libXcursor-devel \
+        libXrandr-devel libXinerama-devel libXi-devel
+    ```
+
+    **Arch Linux / Manjaro**
+
+    ```bash
+    sudo pacman -S go gcc mesa libx11 libxcursor libxrandr libxinerama libxi
+    ```
+
+    **openSUSE**
+
+    ```bash
+    sudo zypper install go gcc Mesa-libGL-devel libX11-devel libXcursor-devel \
+        libXrandr-devel libXinerama-devel libXi-devel
+    ```
+
+    Fyne supports both X11 and Wayland. On a Wayland desktop the GLFW backend falls back to XWayland automatically; no extra packages are required for basic usage.
+  </Tab>
+
+  <Tab title="Android">
+    Building for Android requires the Android SDK, the Android NDK, and the `fyne` CLI tool (see [Installing the fyne CLI](#installing-the-fyne-cli) below).
+
+    1. **Install Go** (1.22+) as above.
+    2. **Install Android Studio** from [developer.android.com/studio](https://developer.android.com/studio). It bundles the SDK Manager.
+    3. Open **SDK Manager → SDK Tools** and install:
+       - Android SDK Build-Tools
+       - NDK (Side by side)
+    4. Set the `ANDROID_HOME` (or `ANDROID_SDK_ROOT`) environment variable to your SDK location, e.g.:
+
+    ```bash
+    export ANDROID_HOME=$HOME/Android/Sdk
+    export PATH=$PATH:$ANDROID_HOME/tools:$ANDROID_HOME/platform-tools
+    ```
+
+    5. Install the `fyne` CLI and package your app:
+
+    ```bash
+    fyne package -os android -appID com.example.myapp
+    fyne install -os android
+    ```
+
+    <Warning>
+      Cross-compiling for Android from Windows requires a Linux-like environment (WSL2 is supported). Native Windows builds for Android are not currently supported.
+    </Warning>
+  </Tab>
+
+  <Tab title="iOS">
+    iOS builds can only be produced on **macOS** with a full Xcode installation.
+
+    1. Install **Xcode** from the Mac App Store (not just the Command Line Tools).
+    2. Accept the Xcode licence:
+
+    ```bash
+    sudo xcodebuild -license accept
+    ```
+
+    3. Install the `fyne` CLI tool (see below) then package your app:
+
+    ```bash
+    # Real device
+    fyne package -os ios -appID com.example.myapp
+
+    # iOS Simulator
+    fyne package -os iossimulator -appID com.example.myapp
+    ```
+
+    4. Open the generated `.xcarchive` (or `.app`) in Xcode to sign and deploy it to a device or simulator.
+
+    <Note>
+      You will need an Apple Developer account (free or paid) to run apps on a real iOS device. Simulator builds do not require a paid account.
+    </Note>
+  </Tab>
+
+  <Tab title="WebAssembly">
+    WebAssembly is the only Fyne target that does **not** require a C compiler. The standard Go toolchain ships with a WASM target out of the box.
+
+    1. Install Go 1.22+ — no additional system packages are needed.
+    2. Set `GOARCH=wasm` and `GOOS=js` when building, or use the `fyne` CLI:
+
+    ```bash
+    fyne package -os web
+    ```
+
+    3. Serve the output directory with any static file server. Because browsers enforce same-origin restrictions, you cannot open the HTML file directly from the filesystem.
+
+    ```bash
+    go install golang.org/x/tools/cmd/goexec@latest
+    goexec 'http.ListenAndServe(":8080", http.FileServer(http.Dir(".")))'
+    ```
+
+    Then open `http://localhost:8080` in your browser.
+  </Tab>
+</Tabs>
+
+## Installing the fyne CLI tool
+
+The `fyne` command-line tool is optional for desktop development but required for mobile and web packaging, installing apps into system app directories, and managing assets.
+
+Install it with:
+
+```bash
+go install fyne.io/tools/cmd/fyne@latest
+```
+
+Make sure `$(go env GOPATH)/bin` is on your `PATH` so the `fyne` binary is accessible:
+
+```bash
+# Add to your shell profile (~/.bashrc, ~/.zshrc, etc.)
+export PATH=$PATH:$(go env GOPATH)/bin
+```
+
+## Verify your installation
+
+Once everything is installed, confirm that both Go and the fyne CLI are working correctly:
+
+```bash
+go version
+```
+
+Expected output (version numbers will vary):
+
+```
+go version go1.22.0 linux/amd64
+```
+
+```bash
+fyne version
+```
+
+Expected output:
+
+```
+fyne command version: v2.x.x
+```
+
+If `fyne: command not found`, double-check that `$(go env GOPATH)/bin` is on your `PATH`.
+
+<Tip>
+  You can now head over to the [Quickstart](/quickstart) guide to write and run your first Fyne application.
+</Tip>

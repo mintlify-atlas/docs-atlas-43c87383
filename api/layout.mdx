@@ -1,0 +1,197 @@
+---
+title: "Layout Package — Fyne API Reference"
+sidebarTitle: "layout"
+description: "Reference for the Fyne layout system: fyne.Layout interface, fyne.Size, fyne.Position, built-in layouts, layout.NewSpacer, and custom layout patterns."
+---
+
+Layouts determine how child objects inside a `fyne.Container` are positioned and sized. Fyne separates layout logic from widget rendering: a container holds a slice of `fyne.CanvasObject` children and delegates all measurement and placement to an attached `fyne.Layout`. The `container` package provides factory functions that pair a container with a layout in a single call (e.g. `container.NewHBox`); you generally access the `layout` package directly only when building custom layouts or using `layout.NewSpacer`.
+
+```go
+import "fyne.io/fyne/v2/layout"
+```
+
+---
+
+## `fyne.Layout` Interface
+
+```go
+type Layout interface {
+    Layout(objects []CanvasObject, size Size)
+    MinSize(objects []CanvasObject) Size
+}
+```
+
+| Method | Description |
+|--------|-------------|
+| `Layout(objects []CanvasObject, size Size)` | Positions and resizes every object in `objects` to fit within `size`. Called by the framework whenever the container is laid out. |
+| `MinSize(objects []CanvasObject) Size` | Returns the smallest `fyne.Size` that can contain all `objects` without clipping. The parent container uses this to determine its own minimum size. |
+
+---
+
+## `fyne.Size` and `fyne.Position`
+
+### `fyne.Size`
+
+```go
+type Size struct {
+    Width  float32
+    Height float32
+}
+
+func NewSize(w, h float32) Size
+func NewSquareSize(side float32) Size
+```
+
+Sizes are measured in Fyne's device-independent points, which map to pixels via the display's DPI scale factor.
+
+| Helper | Description |
+|--------|-------------|
+| `s.Add(v Size) Size` | Returns a new size with both dimensions increased. |
+| `s.Subtract(v Size) Size` | Returns a new size with both dimensions decreased. |
+| `s.IsZero() bool` | Returns `true` when both dimensions are zero. |
+| `s.Max(v Size) Size` | Returns the component-wise maximum. |
+| `s.Min(v Size) Size` | Returns the component-wise minimum. |
+
+### `fyne.Position`
+
+```go
+type Position struct {
+    X float32
+    Y float32
+}
+
+func NewPos(x, y float32) Position
+```
+
+Positions are measured from the top-left corner of the parent container. The Y axis increases downward.
+
+| Helper | Description |
+|--------|-------------|
+| `p.Add(v Position) Position` | Translates by a vector. |
+| `p.Subtract(v Position) Position` | Reverse translation. |
+| `p.IsZero() bool` | Returns `true` when both coordinates are zero. |
+
+---
+
+## Built-in Layout Types
+
+The layout types listed below are created internally by the `container` package. You typically interact with them via their `container.New*` wrappers, not by importing this package directly. They are documented here to explain each algorithm.
+
+### `VBoxLayout` — via `container.NewVBox`
+
+Stacks children vertically from top to bottom. Each child is given its horizontal `MinSize` in height, and the full container width. Use `layout.NewSpacer()` to push items to opposite ends.
+
+### `HBoxLayout` — via `container.NewHBox`
+
+Arranges children horizontally left to right. Each child is given its vertical `MinSize` in width, and the full container height. Use `layout.NewSpacer()` for flexible gaps.
+
+### `GridLayout` — via `container.NewGridWithColumns`
+
+Divides available space into equal columns (or rows). Every cell is the same size. Useful for icon grids, toolbars, and button rows.
+
+### `FormLayout` — via `widget.Form` / `container.New(layout.NewFormLayout(), ...)`
+
+Two-column layout where odd-indexed children are labels (right-aligned) and even-indexed children are controls (stretched to fill). Pairs items as rows automatically.
+
+### `BorderLayout` — via `container.NewBorder`
+
+Docks up to four edge objects. The remaining space is given to center objects. Pass `nil` for any edge that should not be filled.
+
+### `CenterLayout` — via `container.NewCenter`
+
+Centers all children at their `MinSize` within the available area. Children do not stretch.
+
+### `StackLayout` — via `container.NewStack`
+
+Stretches every child to fill the full container size. Objects render in slice order — later objects appear on top. Replaces the deprecated `MaxLayout`.
+
+### `PaddedLayout` — via `container.NewPadded`
+
+Insets all children by the theme's standard padding value on all four sides.
+
+### `GridWrapLayout` — via `container.NewGridWrap`
+
+Forces every child to a fixed size and flows them in rows like CSS flex-wrap.
+
+### `AdaptiveGridLayout` — via `container.NewAdaptiveGrid`
+
+Switches between column count (landscape) and row count (portrait) on device rotation.
+
+---
+
+## `layout.NewSpacer`
+
+```go
+func NewSpacer() *Spacer
+```
+
+Returns a flexible blank space object. Inside an `HBox`, a spacer expands horizontally to consume all available slack. Inside a `VBox`, it expands vertically. Placing spacers between items achieves alignment effects similar to CSS `justify-content`.
+
+```go
+// Toolbar: icon left, spacer, actions right
+bar := container.NewHBox(
+    widget.NewIcon(theme.HomeIcon()),
+    layout.NewSpacer(),
+    widget.NewButton("Settings", nil),
+    widget.NewButton("Help", nil),
+)
+```
+
+```go
+// VBox: title at top, spacer fills middle, status at bottom
+col := container.NewVBox(
+    widget.NewLabel("Title"),
+    layout.NewSpacer(),
+    widget.NewLabel("Ready"),
+)
+```
+
+---
+
+## `layout.NewCustomPaddedLayout` *(Since 2.4)*
+
+```go
+func NewCustomPaddedLayout(topPad, bottomPad, leftPad, rightPad float32) fyne.Layout
+```
+
+Like `PaddedLayout` but with independent padding values per side.
+
+---
+
+## Implementing a Custom Layout
+
+To create a layout that the framework can use, implement `fyne.Layout`:
+
+```go
+type centeredHalfLayout struct{}
+
+func (l *centeredHalfLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
+    for _, o := range objects {
+        half := fyne.NewSize(size.Width/2, size.Height/2)
+        o.Resize(half)
+        o.Move(fyne.NewPos(size.Width/4, size.Height/4))
+    }
+}
+
+func (l *centeredHalfLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
+    var max fyne.Size
+    for _, o := range objects {
+        min := o.MinSize()
+        if min.Width > max.Width {
+            max.Width = min.Width
+        }
+        if min.Height > max.Height {
+            max.Height = min.Height
+        }
+    }
+    // Account for the 2x scale factor
+    return fyne.NewSize(max.Width*2, max.Height*2)
+}
+
+// Usage
+c := container.New(&centeredHalfLayout{}, myWidget)
+```
+
+<Tip>
+Return realistic `MinSize` values from your layout. If they are too small, the container may be squeezed by its parent and your `Layout()` method will receive a size smaller than expected.
+</Tip>

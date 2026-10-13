@@ -1,0 +1,426 @@
+---
+title: "Display Widgets: Labels, Icons, and Rich Text"
+sidebarTitle: "Display Widgets"
+description: "Reference for Fyne's display widgets — Label, Icon, Hyperlink, RichText, Accordion, Card, Toolbar, ProgressBar, PopUp, Calendar, and more."
+---
+
+Display widgets present information to the user without requiring direct text input. They cover everything from a single line of styled text to full-featured toolbars, collapsible panels, and animated progress indicators. Like all Fyne widgets they automatically adapt to theme changes and support accessibility roles.
+
+---
+
+## Label
+
+`widget.Label` renders a single string with configurable alignment, text style, and wrapping. It is the most commonly used display widget in Fyne.
+
+**Constructors**
+
+```go
+lbl := widget.NewLabel("Hello, Fyne!")
+
+// With explicit alignment and style
+lbl := widget.NewLabelWithStyle("Warning!", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+
+// Data-bound
+lbl := widget.NewLabelWithData(myStringBinding)
+```
+
+**Key fields**
+
+| Field | Type | Description |
+|---|---|---|
+| `Text` | `string` | The displayed string. |
+| `Alignment` | `fyne.TextAlign` | `TextAlignLeading`, `TextAlignCenter`, `TextAlignTrailing`. |
+| `TextStyle` | `fyne.TextStyle` | Bold, Italic, Monospace, Symbol, TabWidth. |
+| `Wrapping` | `fyne.TextWrap` | `TextWrapOff`, `TextWrapBreak`, `TextWrapWord`. |
+| `Truncation` | `fyne.TextTruncation` | How to truncate text that doesn't fit (since 2.4). |
+| `Importance` | `widget.Importance` | Colours the label: `HighImportance` → primary, `DangerImportance` → error, etc. (since 2.4). |
+| `Selectable` | `bool` | Allows the user to select and copy text (since 2.6). |
+
+```go
+lbl.SetText("Updated text")
+lbl.Bind(anotherBinding)
+```
+
+---
+
+## Icon
+
+`widget.Icon` renders a theme-aware icon resource scaled to the inline icon size.
+
+**Constructor**
+
+```go
+ico := widget.NewIcon(theme.HomeIcon())
+```
+
+**Key field**
+
+```go
+ico.Resource = theme.SettingsIcon()
+ico.SetResource(theme.HelpIcon()) // equivalent, also calls Refresh
+```
+
+Icons automatically change colour when the theme switches between light and dark.
+
+---
+
+## Hyperlink
+
+`widget.Hyperlink` looks like a clickable link: underlined text that opens a URL in the default browser when tapped.
+
+**Constructors**
+
+```go
+u, _ := url.Parse("https://fyne.io")
+link := widget.NewHyperlink("Visit fyne.io", u)
+
+// With custom alignment and style
+link := widget.NewHyperlinkWithStyle("Docs", u, fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+```
+
+**Key fields**
+
+| Field | Type | Description |
+|---|---|---|
+| `Text` | `string` | The link label. |
+| `URL` | `*url.URL` | The target URL. |
+| `OnTapped` | `func()` | Overrides the default `fyne.OpenURL` call (since 2.2). |
+
+```go
+link.SetURL(u)
+link.SetText("New label")
+```
+
+---
+
+## RichText
+
+`widget.RichText` renders a list of `RichTextSegment` values, enabling bold, italic, code, headers, links, and block elements to coexist in one widget.
+
+**Constructors**
+
+```go
+// From typed segments
+rt := widget.NewRichText(
+    &widget.TextSegment{Text: "Hello ", Style: widget.RichTextStyleInline},
+    &widget.TextSegment{Text: "world", Style: widget.RichTextStyleStrong},
+)
+
+// From a plain string
+rt := widget.NewRichTextWithText("Simple paragraph.")
+
+// From a Markdown string (since 2.1)
+rt := widget.NewRichTextFromMarkdown("# Heading\n\nParagraph with **bold** text.")
+```
+
+**Key fields**
+
+| Field | Type | Description |
+|---|---|---|
+| `Segments` | `[]RichTextSegment` | All content segments. |
+| `Wrapping` | `fyne.TextWrap` | Wrapping applied to all inline text. |
+| `Scroll` | `fyne.ScrollDirection` | Enable scrolling (`ScrollBoth`, `ScrollVerticalOnly`, etc.). |
+| `Selectable` | `bool` | Allows text selection (since 2.9). |
+
+**Example**
+
+```go
+rt := widget.NewRichTextFromMarkdown(`
+## Fyne Widgets
+
+Fyne provides a **complete** set of widgets including:
+
+- Buttons and entries
+- Collection views
+- Dialogs
+`)
+rt.Wrapping = fyne.TextWrapWord
+```
+
+---
+
+## RichTextEntry
+
+`widget.RichTextEntry` is an editable version of RichText. It embeds `Entry` and stores its content as segments rather than a plain string.
+
+**Constructors**
+
+```go
+rte := widget.NewRichTextEntry()
+rte.TypeMarkdown = true // convert markdown syntax as you type
+
+// Pre-populate from markdown
+rte := widget.NewRichTextEntryFromMarkdown("# Title\n\nStart **editing** here.")
+```
+
+**Key field**
+
+| Field | Type | Description |
+|---|---|---|
+| `TypeMarkdown` | `bool` | Converts markdown shorthand (e.g. `**`) to styled segments on the fly. |
+
+```go
+rte.ParseMarkdown("# New content\n\nReplaces existing segments.")
+```
+
+<Note>
+`RichTextEntry` was added in Fyne 2.9. Use `NewRichTextEntry()` for a blank editable document and `NewRichTextEntryFromMarkdown()` to pre-load content.
+</Note>
+
+---
+
+## Accordion
+
+`widget.Accordion` shows a vertical list of collapsible sections. By default only one section can be open at a time; setting `MultiOpen = true` allows several to be expanded simultaneously.
+
+**Constructors**
+
+```go
+acc := widget.NewAccordion(
+    widget.NewAccordionItem("Section 1", widget.NewLabel("Content A")),
+    widget.NewAccordionItem("Section 2", widget.NewLabel("Content B")),
+)
+acc.MultiOpen = true
+```
+
+**Key fields**
+
+| Field | Type | Description |
+|---|---|---|
+| `Items` | `[]*widget.AccordionItem` | All accordion panels. |
+| `MultiOpen` | `bool` | Allow multiple sections open at once. |
+
+**Key methods**
+
+```go
+acc.Open(0)      // expand index 0
+acc.Close(1)     // collapse index 1
+acc.OpenAll()
+acc.CloseAll()
+acc.Append(widget.NewAccordionItem("New", widget.NewEntry()))
+```
+
+---
+
+## Card
+
+`widget.Card` groups a title, an optional subtitle, an optional header image, and arbitrary content in a visually distinct rounded panel.
+
+**Constructor**
+
+```go
+card := widget.NewCard(
+    "Profile",
+    "John Doe",
+    widget.NewLabel("Senior Engineer"),
+)
+card.Image = canvas.NewImageFromResource(avatarRes)
+```
+
+**Key fields**
+
+| Field | Type | Description |
+|---|---|---|
+| `Title` | `string` | Bold heading text. |
+| `Subtitle` | `string` | Secondary heading below the title. |
+| `Image` | `*canvas.Image` | Optional banner image displayed at the top. |
+| `Content` | `fyne.CanvasObject` | Any widget or container placed in the card body. |
+
+```go
+card.SetContent(container.NewVBox(
+    widget.NewLabel("Name: Alice"),
+    widget.NewLabel("Role: Admin"),
+))
+card.SetImage(canvas.NewImageFromResource(newAvatarRes))
+```
+
+---
+
+## Separator
+
+`widget.Separator` draws a thin horizontal line using the theme's separator colour. It is commonly used to divide sections in a vertical layout.
+
+**Constructor**
+
+```go
+sep := widget.NewSeparator()
+```
+
+The separator has no configurable fields; it adapts its colour automatically when the theme changes.
+
+---
+
+## ProgressBar
+
+`widget.ProgressBar` displays a determinate progress indicator. Values are in the range `[Min, Max]` (default `0.0` to `1.0`) and are rendered as a percentage.
+
+**Constructors**
+
+```go
+bar := widget.NewProgressBar()   // Min=0, Max=1
+bar.SetValue(0.42)               // 42%
+
+// Data-bound
+bar := widget.NewProgressBarWithData(myFloatBinding)
+```
+
+**Key fields**
+
+| Field | Type | Description |
+|---|---|---|
+| `Min` | `float64` | Lower bound (default `0`). |
+| `Max` | `float64` | Upper bound (default `1`). |
+| `Value` | `float64` | Current progress. |
+| `TextFormatter` | `func() string` | Custom text overlay (replaces the default percentage). |
+
+```go
+bar := widget.NewProgressBar()
+bar.Min = 0
+bar.Max = 200
+bar.TextFormatter = func() string {
+    return fmt.Sprintf("%.0f / 200 items", bar.Value)
+}
+```
+
+---
+
+## ProgressBarInfinite
+
+`widget.ProgressBarInfinite` shows an animated bar that bounces left-to-right indefinitely, signalling that work is happening with an unknown duration.
+
+**Constructor**
+
+```go
+inf := widget.NewProgressBarInfinite() // starts animating immediately
+```
+
+**Key methods**
+
+```go
+inf.Start()    // resume animation
+inf.Stop()     // stop and reset
+inf.Running()  // returns true if animating
+```
+
+The bar starts running automatically when created and when `Show()` is called.
+
+---
+
+## Activity
+
+`widget.Activity` renders three pulsing dots — a compact loading indicator suitable for embedding inline or in toolbars.
+
+**Constructor**
+
+```go
+act := widget.NewActivity()
+act.Start()
+```
+
+**Key methods**
+
+```go
+act.Start()  // begin animation
+act.Stop()   // stop animation
+```
+
+<Tip>
+Prefer `Activity` when you want a small inline indicator. Use `ProgressBarInfinite` when you need the full-width progress bar style familiar to desktop users.
+</Tip>
+
+---
+
+## Toolbar
+
+`widget.Toolbar` arranges a horizontal row of `ToolbarItem` values: icon buttons, spacers, and separators.
+
+**Constructor**
+
+```go
+tb := widget.NewToolbar(
+    widget.NewToolbarAction(theme.DocumentNewIcon(), func() { fmt.Println("new") }),
+    widget.NewToolbarAction(theme.FolderOpenIcon(), func() { fmt.Println("open") }),
+    widget.NewToolbarSeparator(),
+    widget.NewToolbarSpacer(),
+    widget.NewToolbarAction(theme.HelpIcon(), func() { fmt.Println("help") }),
+)
+```
+
+**Toolbar item types**
+
+| Type | Constructor | Purpose |
+|---|---|---|
+| `ToolbarAction` | `NewToolbarAction(icon, fn)` | A tappable icon button. |
+| `ToolbarSeparator` | `NewToolbarSeparator()` | A thin vertical dividing line. |
+| `ToolbarSpacer` | `NewToolbarSpacer()` | Flexible space that pushes items to opposite ends. |
+
+```go
+// Append an item after creation
+tb.Append(widget.NewToolbarAction(theme.SettingsIcon(), func() { openSettings() }))
+tb.Prepend(widget.NewToolbarAction(theme.NavigateBackIcon(), func() { goBack() }))
+```
+
+---
+
+## PopUp
+
+`widget.PopUp` is an overlay widget that floats above all other content. A non-modal pop-up dismisses when the user taps outside it; a modal pop-up blocks interaction with the rest of the UI until it is explicitly hidden.
+
+**Constructors**
+
+```go
+// Non-modal: dismisses on tap-outside
+pop := widget.NewPopUp(content, myWindow.Canvas())
+pop.ShowAtPosition(fyne.NewPos(100, 200))
+
+// Modal: blocks background interaction
+modal := widget.NewModalPopUp(content, myWindow.Canvas())
+modal.Show()
+```
+
+**Key fields**
+
+| Field | Type | Description |
+|---|---|---|
+| `Content` | `fyne.CanvasObject` | The widget or container displayed inside the pop-up. |
+| `Canvas` | `fyne.Canvas` | The canvas on which the pop-up is displayed. |
+| `OnDismiss` | `func()` | Called when the pop-up is dismissed (since 2.9). |
+
+**Key methods**
+
+```go
+pop.Show()
+pop.ShowAtPosition(fyne.NewPos(x, y))
+pop.ShowAtRelativePosition(rel, relativeTo) // since 2.4
+pop.Hide()
+```
+
+**Convenience functions**
+
+```go
+widget.ShowPopUp(content, canvas)
+widget.ShowPopUpAtPosition(content, canvas, pos)
+widget.ShowModalPopUp(content, canvas)
+```
+
+---
+
+## Calendar
+
+`widget.Calendar` is a full month-view date picker with previous/next navigation buttons.
+
+**Constructor**
+
+```go
+cal := widget.NewCalendar(time.Now(), func(t time.Time) {
+    fmt.Println("date picked:", t.Format("2006-01-02"))
+})
+```
+
+**Key fields**
+
+| Field | Type | Description |
+|---|---|---|
+| `OnChanged` | `func(time.Time)` | Called when the user taps a date. |
+
+For a compact date entry that opens a calendar pop-up, see [`DateEntry`](/widgets/input#dateentry) in the Input Widgets guide.

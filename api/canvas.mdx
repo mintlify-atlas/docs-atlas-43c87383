@@ -1,0 +1,408 @@
+---
+title: "Canvas Package — Fyne API Reference"
+sidebarTitle: "canvas"
+description: "API reference for Fyne canvas primitives: Rectangle, Circle, Line, Image, Text, Raster, gradients, animations, and ImageFillMode constants."
+---
+
+The `canvas` package contains the low-level drawing primitives that all Fyne widgets are built from. Unlike widgets, canvas objects hold no interactive state — they are purely visual. You can compose them directly inside a `fyne.Container` with `NewWithoutLayout`, or use them as building blocks inside a custom `fyne.WidgetRenderer`. After mutating any field, call the object's `Refresh()` method (or `canvas.Refresh(obj)`) to schedule a repaint.
+
+```go
+import "fyne.io/fyne/v2/canvas"
+```
+
+### `canvas.Refresh`
+
+```go
+func Refresh(obj fyne.CanvasObject)
+```
+
+Instructs the containing canvas to repaint `obj`. This is the canonical way to force a redraw after changing primitive fields.
+
+### `canvas.RecolorSVG` *(Since 2.6)*
+
+```go
+func RecolorSVG(svgContent []byte, c color.Color) ([]byte, error)
+```
+
+Returns SVG content recolored to a single monochrome color. Useful for tinting icon assets.
+
+---
+
+## `canvas.Rectangle`
+
+A filled and/or stroked rectangle.
+
+```go
+type Rectangle struct {
+    FillColor   color.Color
+    StrokeColor color.Color
+    StrokeWidth float32
+    CornerRadius float32         // Since: 2.4
+
+    // Per-corner radii — each falls back to CornerRadius when 0. Since: 2.7
+    TopRightCornerRadius    float32
+    TopLeftCornerRadius     float32
+    BottomRightCornerRadius float32
+    BottomLeftCornerRadius  float32
+
+    Aspect float32  // Enforce aspect ratio. Since: 2.7
+    Shadow Shadow   // Drop shadow configuration. Since: 2.8
+}
+
+func NewRectangle(c color.Color) *Rectangle
+```
+
+```go
+rect := canvas.NewRectangle(color.NRGBA{R: 100, G: 149, B: 237, A: 255})
+rect.CornerRadius = 8
+rect.StrokeColor = color.Black
+rect.StrokeWidth = 2
+```
+
+<Tip>
+Use `canvas.RadiusMaximum` as `CornerRadius` to make a rectangle appear as a pill or circle shape.
+</Tip>
+
+---
+
+## `canvas.Circle`
+
+A circle defined by two corner positions.
+
+```go
+type Circle struct {
+    FillColor   color.Color
+    StrokeColor color.Color
+    StrokeWidth float32
+    Position1   fyne.Position // top-left bounding corner
+    Position2   fyne.Position // bottom-right bounding corner
+}
+
+func NewCircle(color color.Color) *Circle
+```
+
+---
+
+## `canvas.Line`
+
+A straight line segment between two points.
+
+```go
+type Line struct {
+    StrokeColor color.Color
+    StrokeWidth float32
+    Position1   fyne.Position // start point
+    Position2   fyne.Position // end point
+}
+
+func NewLine(color color.Color) *Line
+```
+
+---
+
+## `canvas.Image`
+
+A drawable image area that supports file, resource, and in-memory sources. The image fills its allocated size according to `FillMode`.
+
+```go
+type Image struct {
+    File     string        // path to an image file
+    Resource fyne.Resource // in-memory resource (PNG, JPEG, SVG)
+    Image    image.Image   // pre-decoded Go image
+
+    Translucency float64    // 0.0 = opaque, 1.0 = fully transparent
+    FillMode     ImageFill
+    ScaleMode    ImageScale
+    CornerRadius float32    // Since: 2.7
+}
+
+func NewImageFromFile(file string) *Image
+func NewImageFromResource(res fyne.Resource) *Image
+func NewImageFromImage(img image.Image) *Image
+func NewImageFromURI(uri fyne.URI) *Image       // Since: 2.0
+func NewImageFromReader(read io.Reader, name string) *Image // Since: 2.0
+```
+
+### `ImageFill` Constants
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `ImageFillStretch` | `0` | Scales the image to exactly match the object size. Default. Does not preserve aspect ratio. |
+| `ImageFillContain` | `1` | Scales to fit within the object bounds while preserving aspect ratio. May leave transparent bands. |
+| `ImageFillOriginal` | `2` | The container grows to match the image's original pixel dimensions. |
+| `ImageFillCover` | `3` | Scales to fill the object, cropping equally from edges if needed. *(Since 2.7)* |
+
+### `ImageScale` Constants
+
+| Constant | Description |
+|----------|-------------|
+| `ImageScaleSmooth` | Bilinear interpolation (default). |
+| `ImageScalePixels` | Nearest-neighbor — for pixel art. |
+| `ImageScaleFastest` | Hardware GPU scaling when available. *(Since 2.0)* |
+
+```go
+img := canvas.NewImageFromResource(myIconResource)
+img.FillMode = canvas.ImageFillContain
+img.SetMinSize(fyne.NewSize(200, 200))
+```
+
+---
+
+## `canvas.Text`
+
+Renders a plain string without any markup.
+
+```go
+type Text struct {
+    Text      string
+    Color     color.Color
+    TextSize  float32
+    TextStyle fyne.TextStyle
+    Alignment fyne.TextAlign
+    FontSource fyne.Resource // Since: 2.5
+}
+
+func NewText(text string, color color.Color) *Text
+```
+
+### `fyne.TextStyle`
+
+```go
+type TextStyle struct {
+    Bold      bool
+    Italic    bool
+    Monospace bool
+    Symbol    bool
+    TabWidth  int
+}
+```
+
+### `fyne.TextAlign` Constants
+
+```go
+const (
+    TextAlignLeading  TextAlign = iota
+    TextAlignCenter
+    TextAlignTrailing
+)
+```
+
+```go
+title := canvas.NewText("Hello World", color.Black)
+title.TextSize = 24
+title.TextStyle = fyne.TextStyle{Bold: true}
+title.Alignment = fyne.TextAlignCenter
+```
+
+---
+
+## `canvas.Raster`
+
+Generates pixel content via a callback, re-invoked on every resize.
+
+```go
+type Raster struct {
+    Generator      func(w, h int) image.Image
+    ScaleMode      ImageScale
+    Translucency   float64
+}
+
+func NewRaster(generate func(w, h int) image.Image) *Raster
+func NewRasterWithPixels(pixelColor func(x, y, w, h int) color.Color) *Raster
+func NewRasterFromImage(img image.Image) *Raster
+```
+
+```go
+checker := canvas.NewRasterWithPixels(func(x, y, w, h int) color.Color {
+    if (x/8+y/8)%2 == 0 {
+        return color.White
+    }
+    return color.Black
+})
+```
+
+---
+
+## `canvas.LinearGradient`
+
+A linear color gradient rendered between two positions.
+
+```go
+type LinearGradient struct {
+    StartColor color.Color
+    EndColor   color.Color
+    Angle      float64 // degrees; 0 = left→right, 90 = top→bottom
+}
+
+func NewLinearGradient(start, end color.Color, angle float64) *LinearGradient
+```
+
+---
+
+## `canvas.RadialGradient`
+
+A radial gradient that radiates outward from a center point.
+
+```go
+type RadialGradient struct {
+    StartColor color.Color
+    EndColor   color.Color
+    CenterOffsetX float32
+    CenterOffsetY float32
+}
+
+func NewRadialGradient(start, end color.Color) *RadialGradient
+```
+
+---
+
+## `canvas.Blur` *(Since 2.8)*
+
+Applies a Gaussian blur to all canvas objects beneath it.
+
+```go
+type Blur struct {
+    CornerRadius float32
+}
+
+func NewBlur(radius float32) *Blur
+```
+
+---
+
+## `canvas.BezierCurve` *(Since 2.9)*
+
+A cubic Bézier curve defined by two anchor points and two control points.
+
+```go
+type BezierCurve struct {
+    Position1   fyne.Position
+    Position2   fyne.Position
+    Control1    fyne.Position
+    Control2    fyne.Position
+    StrokeColor color.Color
+    StrokeWidth float32
+}
+
+func NewBezierCurve(start, end fyne.Position) *BezierCurve
+```
+
+---
+
+## `canvas.Ellipse` *(Since 2.9)*
+
+A filled and/or stroked ellipse.
+
+```go
+type Ellipse struct {
+    FillColor   color.Color
+    StrokeColor color.Color
+    StrokeWidth float32
+}
+
+func NewEllipse(color color.Color) *Ellipse
+```
+
+---
+
+## `canvas.ArbitraryPolygon` *(Since 2.9)*
+
+A filled and/or stroked polygon defined by an arbitrary list of vertices.
+
+```go
+type ArbitraryPolygon struct {
+    Points      []fyne.Position
+    FillColor   color.Color
+    StrokeColor color.Color
+    StrokeWidth float32
+}
+
+func NewArbitraryPolygon(points []fyne.Position, color color.Color) *ArbitraryPolygon
+```
+
+---
+
+## `canvas.RegularPolygon` *(Since 2.9)*
+
+A regular n-sided polygon.
+
+```go
+type RegularPolygon struct {
+    Sides       int
+    FillColor   color.Color
+    StrokeColor color.Color
+    StrokeWidth float32
+}
+
+func NewRegularPolygon(sides int, color color.Color) *RegularPolygon
+```
+
+---
+
+## Canvas Animations
+
+Animations interpolate values between a start and end state over a given duration.
+
+### `NewColorRGBAAnimation`
+
+```go
+func NewColorRGBAAnimation(
+    start, stop color.Color,
+    d time.Duration,
+    fn func(color.Color),
+) *fyne.Animation
+```
+
+Interpolates between two colors, calling `fn` with each intermediate color.
+
+### `NewSizeAnimation`
+
+```go
+func NewSizeAnimation(
+    start, stop fyne.Size,
+    d time.Duration,
+    fn func(fyne.Size),
+) *fyne.Animation
+```
+
+Interpolates between two `fyne.Size` values.
+
+### `NewPositionAnimation`
+
+```go
+func NewPositionAnimation(
+    start, stop fyne.Position,
+    d time.Duration,
+    fn func(fyne.Position),
+) *fyne.Animation
+```
+
+Interpolates between two `fyne.Position` values.
+
+### `fyne.Animation`
+
+All animation constructors return `*fyne.Animation`. Call `Start()` to begin and `Stop()` to end. Set `Curve` to `fyne.AnimationLinear`, `fyne.AnimationEaseIn`, `fyne.AnimationEaseOut`, or `fyne.AnimationEaseInOut`.
+
+```go
+anim := canvas.NewColorRGBAAnimation(
+    color.Transparent,
+    color.NRGBA{R: 255, G: 100, B: 0, A: 255},
+    500*time.Millisecond,
+    func(c color.Color) {
+        rect.FillColor = c
+        canvas.Refresh(rect)
+    },
+)
+anim.Curve = fyne.AnimationEaseOut
+anim.Start()
+```
+
+---
+
+## `RadiusMaximum` Constant
+
+```go
+const RadiusMaximum float32 = math.MaxFloat32
+```
+
+Apply to any `CornerRadius` field to achieve fully rounded corners, producing a circular or pill appearance. *(Since 2.7)*

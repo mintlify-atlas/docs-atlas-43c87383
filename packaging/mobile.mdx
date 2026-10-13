@@ -1,0 +1,234 @@
+---
+title: "Package Fyne Apps for Android and iOS"
+sidebarTitle: "Mobile"
+description: "Package and deploy Fyne applications to Android and iOS devices using the fyne CLI, with prerequisites, step-by-step commands, and mobile-specific guidance."
+---
+
+Fyne's single-codebase philosophy extends fully to mobile — the same Go source that runs on your desktop compiles into a native Android APK or iOS application bundle. The `fyne` CLI wraps Google's `gomobile` toolchain to handle the cross-compilation, manifest generation, and device deployment so you can iterate quickly without leaving your terminal. Because Fyne abstracts platform differences, most of your application code requires no changes at all to run on a phone or tablet.
+
+## Mobile simulation on desktop
+
+Before targeting a real device you can preview your app in a mobile-like simulation window on your current desktop by passing the `mobile` build tag:
+
+```bash
+go run -tags mobile main.go
+```
+
+The window simulates a mobile form factor and disables desktop-only features like menu bars and keyboard shortcuts, giving you a fast feedback loop without any special toolchain setup.
+
+## Prerequisites
+
+<Tabs>
+  <Tab title="Android">
+    Before packaging for Android you need the following tools installed and available in your `PATH`:
+
+    <CardGroup cols={2}>
+      <Card title="Android SDK & NDK" icon="android">
+        Install via [Android Studio](https://developer.android.com/studio) or the standalone command-line tools. Set `ANDROID_HOME` to your SDK root. The NDK is required for CGo cross-compilation.
+      </Card>
+      <Card title="Java / JDK" icon="java">
+        A JDK (version 8 or later) is required for `jarsigner` and the Android build tools. OpenJDK works fine.
+      </Card>
+      <Card title="fyne CLI" icon="terminal">
+        Install with `go install fyne.io/tools/cmd/fyne@latest`. This pulls in `gomobile` automatically.
+      </Card>
+      <Card title="Go 1.22+" icon="golang">
+        Fyne requires Go 1.22 or later. Verify with `go version`.
+      </Card>
+    </CardGroup>
+  </Tab>
+
+  <Tab title="iOS">
+    iOS builds are **only supported on macOS**. You need:
+
+    <CardGroup cols={2}>
+      <Card title="Xcode" icon="apple">
+        Install Xcode from the Mac App Store and accept the license (`sudo xcodebuild -license`). The Xcode command-line tools must be active.
+      </Card>
+      <Card title="Apple Developer Account" icon="key">
+        A free account lets you sideload to your own device. A paid membership is required for TestFlight and App Store distribution.
+      </Card>
+      <Card title="fyne CLI" icon="terminal">
+        Install with `go install fyne.io/tools/cmd/fyne@latest`.
+      </Card>
+      <Card title="Provisioning Profile" icon="lock">
+        For device builds the `-appID` must match a valid provisioning profile registered in your Apple Developer account.
+      </Card>
+    </CardGroup>
+
+    <Note>
+      iOS simulator builds do **not** require a paid developer account or a provisioning profile, making them ideal for quick UI testing.
+    </Note>
+  </Tab>
+</Tabs>
+
+## Package and install for Android
+
+<Steps>
+  <Step title="Install the fyne CLI">
+    ```bash
+    go install fyne.io/tools/cmd/fyne@latest
+    ```
+
+    Confirm the installation succeeded:
+
+    ```bash
+    fyne version
+    ```
+  </Step>
+
+  <Step title="Package the APK">
+    Run `fyne package` with `-os android` from your module root. The `-appID` flag is required and must use reverse-DNS format with no hyphens:
+
+    ```bash
+    fyne package -os android -appID com.example.myapp -appVersion 1.0.0 -appBuild 1
+    ```
+
+    This produces `MyApp.apk` in the current directory. For architecture-specific builds you can target a single ABI:
+
+    ```bash
+    # arm64 only
+    fyne package -os android/arm64 -appID com.example.myapp
+
+    # 32-bit ARM
+    fyne package -os android/arm -appID com.example.myapp
+    ```
+
+    Supported Android targets: `android`, `android/arm`, `android/arm64`, `android/amd64`, `android/386`.
+
+    <Tip>
+      Store your metadata in `FyneApp.toml` to avoid repeating flags:
+
+      ```toml
+      [Details]
+      ID      = "com.example.myapp"
+      Version = "1.0.0"
+      Build   = 1
+      ```
+    </Tip>
+  </Step>
+
+  <Step title="Install to a connected device or emulator">
+    With a device connected over USB (or an emulator running) use `fyne install`:
+
+    ```bash
+    fyne install -os android
+    ```
+
+    This calls `adb install` under the hood. Verify `adb` is in your `PATH` before running.
+  </Step>
+</Steps>
+
+## Package and install for iOS
+
+<Steps>
+  <Step title="Install the fyne CLI">
+    ```bash
+    go install fyne.io/tools/cmd/fyne@latest
+    ```
+  </Step>
+
+  <Step title="Package for a real iOS device">
+    ```bash
+    fyne package -os ios -appID com.example.myapp -appVersion 1.0.0 -appBuild 1
+    ```
+
+    The `-appID` must exactly match the bundle identifier of a provisioning profile in your Apple Developer account. Fyne produces a `.app` bundle ready for deployment.
+  </Step>
+
+  <Step title="Package for the iOS simulator">
+    Use `-os iossimulator` to produce a simulator-compatible build:
+
+    ```bash
+    fyne package -os iossimulator -appID com.example.myapp
+    ```
+
+    The simulator build does not need a provisioning profile.
+  </Step>
+
+  <Step title="Deploy via Xcode or ios-deploy">
+    Install to a booted simulator automatically:
+
+    ```bash
+    fyne install -os iossimulator
+    ```
+
+    For a physical device, open the `.app` bundle in Xcode or use `ios-deploy`:
+
+    ```bash
+    fyne install -os ios
+    ```
+
+    `fyne install -os ios` calls `ios-deploy --bundle` internally. Make sure `ios-deploy` is available (`npm install -g ios-deploy`).
+
+    For App Store distribution use `fyne release` instead — see the [Release guide](/packaging/release).
+  </Step>
+</Steps>
+
+## The `-appID` flag
+
+Every mobile package command requires a valid App ID in **reverse-DNS format**:
+
+```
+com.yourcompany.yourapp
+```
+
+Rules enforced by the `fyne` CLI:
+
+- Must contain at least one `.`
+- No hyphens (`-`) allowed
+- Each segment cannot start with an underscore (`_`) or a digit
+- For iOS, must match a provisioning profile registered with Apple
+
+```bash
+# ✅ valid
+fyne package -os android -appID com.example.myapp
+
+# ❌ invalid — contains a hyphen
+fyne package -os android -appID com.example.my-app
+
+# ❌ invalid — no dot separator
+fyne package -os android -appID myapp
+```
+
+## Mobile-specific considerations
+
+### Back button (Android)
+
+Android's hardware and gesture back button is surfaced through the Fyne lifecycle. Listen for it with your window's `Canvas`:
+
+```go
+w.Canvas().SetOnTypedKey(func(k *fyne.KeyEvent) {
+    if k.Name == fyne.KeyEscape { // maps to Android Back on mobile
+        // handle navigation
+    }
+})
+```
+
+### App lifecycle (pause and resume)
+
+Register lifecycle callbacks on the application to react to foreground/background transitions:
+
+```go
+a := app.New()
+a.Lifecycle().SetOnEnteredForeground(func() {
+    // app became active — resume work
+})
+a.Lifecycle().SetOnExitedForeground(func() {
+    // app moved to background — pause, save state
+})
+```
+
+### Orientation
+
+Fyne respects the device orientation automatically and reflows your layout when the user rotates their device. No additional code is needed for basic portrait/landscape support.
+
+### No keyboard shortcuts
+
+Mobile devices have no physical keyboard by default, so keyboard shortcuts defined with `canvas.AddShortcut` are silently ignored. Design your mobile UI to rely on tap targets and gestures rather than key combinations.
+
+<Warning>
+  The `-sourceDir` flag is **not supported** for iOS and Android builds. Change
+  your working directory to the Go package that contains `main.go` before
+  running `fyne package`.
+</Warning>

@@ -1,0 +1,332 @@
+---
+title: "Storage Package — Fyne API Reference"
+sidebarTitle: "storage"
+description: "Fyne storage API reference: URI creation, file read/write, directory listing, copy, move, delete, and app-scoped sandboxed storage with fyne.URI types."
+---
+
+The `storage` package provides a URI-based, scheme-agnostic API for working with files, directories, and other addressable resources. Every operation is routed through a registered `repository.Repository` for the URI's scheme, which means the same API works uniformly for `file://`, `http(s)://`, and any custom scheme you register. The `fyne.App`'s `Storage()` accessor provides a sandboxed root URI suitable for storing private application data.
+
+```go
+import "fyne.io/fyne/v2/storage"
+```
+
+---
+
+## URI Interfaces
+
+### `fyne.URI`
+
+```go
+type URI interface {
+    Extension() string
+    Name() string
+    MimeType() string
+    Scheme() string
+    String() string
+    Authority() string
+    Path() string
+    Fragment() string
+    Query() string
+}
+```
+
+An immutable reference to a resource. Do not store the string representation and reconstruct later with `ParseURI`.
+
+### `fyne.URIReadCloser`
+
+```go
+type URIReadCloser interface {
+    io.ReadCloser
+    URI() URI
+}
+```
+
+Returned by `storage.Reader()`. Always close it in a `defer` or via the callback.
+
+### `fyne.URIWriteCloser`
+
+```go
+type URIWriteCloser interface {
+    io.WriteCloser
+    URI() URI
+}
+```
+
+Returned by `storage.Writer()`. Always close it after writing.
+
+### `fyne.ListableURI`
+
+```go
+type ListableURI interface {
+    URI
+    List() ([]URI, error)
+}
+```
+
+A URI that represents a directory or listable container.
+
+---
+
+## URI Construction
+
+### `storage.NewFileURI`
+
+```go
+func NewFileURI(path string) fyne.URI
+```
+
+Creates a `file://` URI from a local filesystem path. Relative paths are converted to absolute automatically.
+
+```go
+uri := storage.NewFileURI("/home/user/documents/report.pdf")
+```
+
+### `storage.ParseURI`
+
+```go
+func ParseURI(s string) (fyne.URI, error)
+```
+
+Parses a URI string into a `fyne.URI`. The scheme is extracted and the registered repository is consulted for further parsing. `file:` URIs always use `NewFileURI` internally.
+
+```go
+uri, err := storage.ParseURI("file:///tmp/data.json")
+```
+
+### `storage.EqualURI` *(Since 2.6)*
+
+```go
+func EqualURI(t1, t2 fyne.URI) bool
+```
+
+Returns `true` if two URIs reference the same resource.
+
+---
+
+## Reading Files
+
+### `storage.Reader`
+
+```go
+func Reader(u fyne.URI) (fyne.URIReadCloser, error)
+```
+
+Opens the resource for reading. Returns a `fyne.URIReadCloser` that must be closed by the caller.
+
+### `storage.CanRead`
+
+```go
+func CanRead(u fyne.URI) (bool, error)
+```
+
+Tests whether the resource is readable without actually opening it.
+
+```go
+if ok, _ := storage.CanRead(uri); ok {
+    rc, err := storage.Reader(uri)
+    if err == nil {
+        defer rc.Close()
+        data, _ := io.ReadAll(rc)
+    }
+}
+```
+
+### `storage.OpenFileFromURI` *(Deprecated)*
+
+```go
+func OpenFileFromURI(uri fyne.URI) (fyne.URIReadCloser, error)
+```
+
+Deprecated: replaced by `storage.Reader(uri)`.
+
+---
+
+## Writing Files
+
+### `storage.Writer`
+
+```go
+func Writer(u fyne.URI) (fyne.URIWriteCloser, error)
+```
+
+Opens or creates the resource for writing. Writing to an existing resource overwrites it in place.
+
+### `storage.Appender` *(Since 2.6)*
+
+```go
+func Appender(u fyne.URI) (fyne.URIWriteCloser, error)
+```
+
+Opens the resource for writing without truncating existing content.
+
+### `storage.CanWrite`
+
+```go
+func CanWrite(u fyne.URI) (bool, error)
+```
+
+Tests whether the resource is writable without opening it.
+
+```go
+wc, err := storage.Writer(uri)
+if err == nil {
+    defer wc.Close()
+    wc.Write([]byte("hello"))
+}
+```
+
+### `storage.SaveFileToURI` *(Deprecated)*
+
+```go
+func SaveFileToURI(uri fyne.URI) (fyne.URIWriteCloser, error)
+```
+
+Deprecated: replaced by `storage.Writer(uri)`.
+
+---
+
+## Directory Operations
+
+### `storage.ListerForURI`
+
+```go
+func ListerForURI(uri fyne.URI) (fyne.ListableURI, error)
+```
+
+Wraps a `fyne.URI` in a `fyne.ListableURI` if the underlying resource supports listing (e.g. is a directory).
+
+### `storage.CanList`
+
+```go
+func CanList(u fyne.URI) (bool, error)
+```
+
+Tests whether the URI is listable.
+
+### `storage.List`
+
+```go
+func List(u fyne.URI) ([]fyne.URI, error)
+```
+
+Returns the immediate children of a listable URI.
+
+### `storage.CreateListable`
+
+```go
+func CreateListable(u fyne.URI) error
+```
+
+Creates a new directory or equivalent listable resource. Fails if the parent does not exist (use `CreateListable` on the parent first).
+
+---
+
+## Hierarchical Helpers
+
+### `storage.Parent`
+
+```go
+func Parent(u fyne.URI) (fyne.URI, error)
+```
+
+Returns the parent URI. Returns `storage.ErrURIRoot` when called on a filesystem root. *(Since 1.4)*
+
+### `storage.Child`
+
+```go
+func Child(u fyne.URI, component string) (fyne.URI, error)
+```
+
+Returns a child URI by appending `component` to the path. *(Since 1.4)*
+
+```go
+dir  := storage.NewFileURI("/home/user")
+docs, _ := storage.Child(dir, "Documents")
+// docs represents /home/user/Documents
+```
+
+### `storage.Exists`
+
+```go
+func Exists(u fyne.URI) (bool, error)
+```
+
+Checks whether the resource exists.
+
+---
+
+## File Operations
+
+### `storage.Copy`
+
+```go
+func Copy(source fyne.URI, destination fyne.URI) error
+```
+
+Copies the resource at `source` to `destination`. For same-scheme URIs this delegates to the registered repository's native copy; for cross-scheme copies a generic stream copy is attempted. *(Since 2.0)*
+
+### `storage.Move`
+
+```go
+func Move(source fyne.URI, destination fyne.URI) error
+```
+
+Moves (renames) `source` to `destination`. *(Since 2.0)*
+
+### `storage.Delete`
+
+```go
+func Delete(u fyne.URI) error
+```
+
+Deletes the resource. Fails if it does not exist. *(Since 2.0)*
+
+### `storage.DeleteAll` *(Since 2.7)*
+
+```go
+func DeleteAll(u fyne.URI) error
+```
+
+Recursively deletes the resource and all its children for listable URIs.
+
+---
+
+## App-Scoped Storage
+
+Every `fyne.App` with a unique ID gets a private storage sandbox accessible through:
+
+```go
+root := a.Storage().RootURI()
+```
+
+`RootURI()` returns a `fyne.URI` pointing to a platform-appropriate private directory (e.g. `~/.local/share/<appID>` on Linux, an app container on iOS/Android). Files created here are not accessible to other apps and are removed when the app is uninstalled on mobile platforms.
+
+```go
+a := app.NewWithID("com.example.notes")
+root := a.Storage().RootURI()
+notesFile, _ := storage.Child(root, "notes.txt")
+
+wc, err := storage.Writer(notesFile)
+if err == nil {
+    defer wc.Close()
+    wc.Write([]byte("My note"))
+}
+```
+
+The `Storage()` interface also exposes document-oriented helpers via `a.Storage().List()` and related methods for apps that manage named user documents.
+
+---
+
+## Custom Repository Registration
+
+```go
+import "fyne.io/fyne/v2/storage/repository"
+
+repository.Register("myscheme", myRepoInstance)
+```
+
+Once registered, all `storage.*` calls for `myscheme://` URIs are routed to `myRepoInstance`. Implement additional interfaces (`WritableRepository`, `ListableRepository`, `HierarchicalRepository`, `CopyableRepository`, `MovableRepository`) to unlock the corresponding storage functions.
+
+<Warning>
+`repository.Register` is global and not goroutine-safe. Call it once during app initialization before any storage operations.
+</Warning>

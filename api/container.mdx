@@ -1,0 +1,326 @@
+---
+title: "Container Package — Fyne API Reference"
+sidebarTitle: "container"
+description: "Reference for Fyne container constructors: border, grid, HBox, VBox, stack, tabs, scroll, split, and navigation containers with layout examples."
+---
+
+The `container` package provides factory functions that pair a `fyne.Container` with a pre-configured layout. Containers are the primary tool for composing widget trees. Each `New*` function wraps the underlying `layout` constructors so you rarely need to call the `layout` package directly. Containers hold a slice of `fyne.CanvasObject` children; the active layout dictates their positions and sizes at render time.
+
+```go
+import "fyne.io/fyne/v2/container"
+```
+
+<Note>
+`fyne.Container` has `Objects []fyne.CanvasObject` and `Layout fyne.Layout` fields. Call `container.Refresh()` or `container.Add(obj)` / `container.Remove(obj)` to mutate the tree dynamically.
+</Note>
+
+---
+
+## Box Layouts
+
+### `NewHBox`
+
+```go
+func NewHBox(objects ...fyne.CanvasObject) *fyne.Container
+```
+
+Places objects left-to-right, each at its natural horizontal `MinSize`. Use `layout.NewSpacer()` to push items apart.
+
+```go
+bar := container.NewHBox(
+    widget.NewLabel("File"),
+    layout.NewSpacer(),
+    widget.NewButton("Save", save),
+)
+```
+
+### `NewVBox`
+
+```go
+func NewVBox(objects ...fyne.CanvasObject) *fyne.Container
+```
+
+Stacks objects top-to-bottom, each at its natural vertical `MinSize`. Use `layout.NewSpacer()` to push items apart.
+
+---
+
+## Grid Layouts
+
+### `NewAdaptiveGrid`
+
+```go
+func NewAdaptiveGrid(rowcols int, objects ...fyne.CanvasObject) *fyne.Container
+```
+
+A grid that uses `rowcols` as columns when the device is in landscape orientation and as rows in portrait. On mobile this switches dynamically on rotation.
+
+<ParamField path="rowcols" type="int" required>
+  Number of columns (landscape) or rows (portrait).
+</ParamField>
+
+### `NewGridWithColumns`
+
+```go
+func NewGridWithColumns(cols int, objects ...fyne.CanvasObject) *fyne.Container
+```
+
+Fixed column count; rows grow as needed.
+
+### `NewGridWithRows`
+
+```go
+func NewGridWithRows(rows int, objects ...fyne.CanvasObject) *fyne.Container
+```
+
+Fixed row count; columns grow as needed.
+
+### `NewGridWrap`
+
+```go
+func NewGridWrap(size fyne.Size, objects ...fyne.CanvasObject) *fyne.Container
+```
+
+Every child is forced to `size`. Children flow left-to-right and wrap onto a new row when the container width is exhausted.
+
+<ParamField path="size" type="fyne.Size" required>
+  Fixed `{Width, Height}` for every child object.
+</ParamField>
+
+```go
+grid := container.NewGridWrap(fyne.NewSize(100, 100),
+    canvas.NewRectangle(color.NRGBA{R: 200, A: 255}),
+    canvas.NewRectangle(color.NRGBA{G: 200, A: 255}),
+    canvas.NewRectangle(color.NRGBA{B: 200, A: 255}),
+)
+```
+
+---
+
+## Structural Layouts
+
+### `NewBorder`
+
+```go
+func NewBorder(
+    top, bottom, left, right fyne.CanvasObject,
+    objects ...fyne.CanvasObject,
+) *fyne.Container
+```
+
+Docks objects to the four edges. Any of the first four parameters can be `nil`. Remaining objects (parameter 5+) fill the center; multiple center objects are stacked.
+
+```go
+content := container.NewBorder(
+    widget.NewToolbar(widget.NewToolbarAction(theme.HomeIcon(), nil)), // top
+    widget.NewLabel("Status bar"),                                      // bottom
+    nil,                                                                // left
+    nil,                                                                // right
+    myMainContent,                                                      // center
+)
+```
+
+### `NewCenter`
+
+```go
+func NewCenter(objects ...fyne.CanvasObject) *fyne.Container
+```
+
+Centers every child at its `MinSize` within the available space.
+
+### `NewStack` *(Since 2.4)*
+
+```go
+func NewStack(objects ...fyne.CanvasObject) *fyne.Container
+```
+
+Each child is stretched to fill the full container area. Objects at the end of the slice are drawn on top.
+
+### `NewMax`
+
+```go
+func NewMax(objects ...fyne.CanvasObject) *fyne.Container
+```
+
+Deprecated alias for `NewStack`. Use `NewStack` in new code.
+
+### `NewPadded`
+
+```go
+func NewPadded(objects ...fyne.CanvasObject) *fyne.Container
+```
+
+Adds the standard theme padding around the child objects.
+
+---
+
+## Scroll Containers
+
+### `NewScroll`
+
+```go
+func NewScroll(content fyne.CanvasObject) *Scroll
+```
+
+Wraps `content` in a scrollable viewport. Both axes scroll by default.
+
+### `NewHScroll`
+
+```go
+func NewHScroll(content fyne.CanvasObject) *Scroll
+```
+
+Horizontal-only scroll.
+
+### `NewVScroll`
+
+```go
+func NewVScroll(content fyne.CanvasObject) *Scroll
+```
+
+Vertical-only scroll.
+
+The returned `*Scroll` exposes:
+- `SetMinSize(fyne.Size)` — minimum visible area before scrolling activates.
+- `Offset fyne.Position` — current scroll position.
+- `ScrollToBottom()` / `ScrollToTop()` — programmatic scrolling.
+
+```go
+scroll := container.NewScroll(widget.NewLabel(longText))
+scroll.SetMinSize(fyne.NewSize(300, 200))
+```
+
+---
+
+## Split Container
+
+### `NewHSplit` / `NewVSplit`
+
+```go
+func NewHSplit(leading, trailing fyne.CanvasObject) *Split
+func NewVSplit(top, bottom fyne.CanvasObject) *Split
+```
+
+A resizable divider between two panes. `SetOffset(float64)` sets the proportional position of the divider (0.0 = all leading, 1.0 = all trailing).
+
+```go
+split := container.NewHSplit(sidebar, mainArea)
+split.SetOffset(0.25)
+```
+
+---
+
+## No-Layout Container
+
+### `NewWithoutLayout`
+
+```go
+func NewWithoutLayout(objects ...fyne.CanvasObject) *fyne.Container
+```
+
+A container where you manually control `Move()` and `Resize()` on every child. Useful for canvas-style free-form placement.
+
+---
+
+## Tab Containers
+
+### `NewAppTabs`
+
+```go
+func NewAppTabs(items ...*TabItem) *AppTabs
+```
+
+A tab bar at the edge of the content area. Tab position is controlled by `SetTabLocation(TabLocation)`.
+
+### `NewDocTabs`
+
+```go
+func NewDocTabs(items ...*TabItem) *DocTabs
+```
+
+Like `AppTabs` but styled for document-style interfaces. *(Since 2.1)*
+
+### `TabItem`
+
+```go
+func NewTabItem(text string, content fyne.CanvasObject) *TabItem
+func NewTabItemWithIcon(text string, icon fyne.Resource, content fyne.CanvasObject) *TabItem
+```
+
+### `TabLocation` Constants
+
+```go
+const (
+    TabLocationTop    TabLocation = iota // default
+    TabLocationBottom
+    TabLocationLeading
+    TabLocationTrailing
+)
+```
+
+```go
+tabs := container.NewAppTabs(
+    container.NewTabItem("Home", homeContent),
+    container.NewTabItemWithIcon("Settings", theme.SettingsIcon(), settingsContent),
+)
+tabs.SetTabLocation(container.TabLocationLeading)
+tabs.OnChanged = func(tab *container.TabItem) {
+    fmt.Println("switched to", tab.Text)
+}
+```
+
+---
+
+## Inner Window Containers *(Since 2.6)*
+
+### `NewInnerWindow`
+
+```go
+func NewInnerWindow(title string, content fyne.CanvasObject) *InnerWindow
+```
+
+A floating window-like widget with a title bar, close, maximise, and minimise buttons. Intended to be placed inside a `NewMultipleWindows` container.
+
+### `NewMultipleWindows`
+
+```go
+func NewMultipleWindows(windows ...*InnerWindow) *MultipleWindows
+```
+
+An MDI (Multiple Document Interface) workspace that hosts `InnerWindow` objects.
+
+```go
+doc1 := container.NewInnerWindow("Document 1", editor1)
+doc2 := container.NewInnerWindow("Document 2", editor2)
+mdi  := container.NewMultipleWindows(doc1, doc2)
+```
+
+---
+
+## Navigation Container *(Since 2.7)*
+
+### `NewNavigation`
+
+```go
+func NewNavigation(root fyne.CanvasObject) *Navigation
+func NewNavigationWithTitle(root fyne.CanvasObject, title string) *Navigation
+```
+
+A mobile-style navigation stack with a title bar and back/forward buttons.
+
+### Methods on `*Navigation`
+
+| Method | Description |
+|--------|-------------|
+| `Push(obj fyne.CanvasObject)` | Pushes a new screen onto the stack. |
+| `PushWithTitle(obj, title string)` | Pushes with an explicit title. |
+| `Back() fyne.CanvasObject` | Pops the top screen and returns it. |
+| `Forward() fyne.CanvasObject` | Re-shows a previously popped screen. |
+| `SetTitle(s string)` | Changes the root title. |
+| `SetCurrentTitle(s string)` | Changes the title at the current stack level. |
+
+```go
+nav := container.NewNavigationWithTitle(homeScreen, "Home")
+detailBtn := widget.NewButton("View Detail", func() {
+    nav.PushWithTitle(detailScreen, "Detail")
+})
+```

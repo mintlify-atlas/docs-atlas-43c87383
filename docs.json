@@ -1,72 +1,95 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mintlify Starter Kit",
+  "name": "Fyne",
+  "theme": "palm",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#22c55e",
+    "light": "#0465ed",
+    "dark": "#04126e"
   },
-  "favicon": "/favicon.svg",
-  "navigation": {
-    "pages": [
-      {
-        "group": "Getting Started",
-        "pages": [
-          "index",
-          "quickstart"
-        ]
-      }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
+  "favicon": "https://media.brand.dev/7fab01b6-ffbe-491a-80d1-31fc7ff3d103.png",
   "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:support@mintlify.com"
-      }
-    ],
     "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://app.mintlify.com"
+      "type": "github",
+      "href": "https://github.com/fyne-io/fyne"
     }
-  },
-  "contextual": {
-    "options": [
-      "copy",
-      "view",
-      "chatgpt",
-      "claude",
-      "perplexity",
-      "mcp",
-      "cursor",
-      "vscode"
-    ]
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "github": "https://github.com/fyne-io/fyne"
     }
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "prerequisites"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/app-and-windows",
+              "concepts/canvas-objects",
+              "concepts/layouts",
+              "concepts/data-binding",
+              "concepts/theming"
+            ]
+          },
+          {
+            "group": "Widgets",
+            "pages": [
+              "widgets/overview",
+              "widgets/input",
+              "widgets/display",
+              "widgets/collections",
+              "widgets/dialogs"
+            ]
+          },
+          {
+            "group": "Packaging & Distribution",
+            "pages": [
+              "packaging/desktop",
+              "packaging/mobile",
+              "packaging/release"
+            ]
+          },
+          {
+            "group": "Extending Fyne",
+            "pages": [
+              "extending/custom-widgets",
+              "extending/custom-layouts",
+              "extending/custom-themes",
+              "extending/localization"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Packages",
+            "pages": [
+              "api/app",
+              "api/widget",
+              "api/container",
+              "api/canvas",
+              "api/dialog",
+              "api/layout",
+              "api/data-binding",
+              "api/storage",
+              "api/theme"
+            ]
+          }
+        ]
+      }
+    ]
   }
 }

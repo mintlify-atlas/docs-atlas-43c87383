@@ -1,0 +1,234 @@
+---
+title: "Release Fyne Apps to App Stores"
+sidebarTitle: "Release"
+description: "Use fyne release to sign and package Fyne apps for the iOS App Store, Mac App Store, Google Play, and Microsoft Store with the correct certificates."
+---
+
+The `fyne release` subcommand is the final step before submitting your application to a public marketplace. It extends `fyne package` by performing platform-specific signing, producing the exact file format each store expects: a `.ipa` for Apple's App Store Connect, a `.pkg` for the Mac App Store, a signed `.apk` or `.aab` for Google Play, and a signed `.appx` for the Microsoft Store. You need a developer account and the correct signing credentials for each platform, but once those are in place a single command prepares everything.
+
+## Overview of `fyne release`
+
+`fyne release` is a superset of `fyne package`. It sets the `-release` flag internally (which disables debug symbols and enables release-mode metadata), then performs additional signing steps after the package is built. Both `-appVersion` and `-appBuild` are **required** for all mobile and Windows targets.
+
+```bash
+fyne release -os <platform> [signing flags] -appID <id> -appVersion <x.y.z> -appBuild <n>
+```
+
+<Note>
+  Make sure the standard platform build tools are installed and that your
+  developer accounts and certificates are configured before running
+  `fyne release`. See each platform section below for specifics.
+</Note>
+
+## Platform release commands
+
+<Tabs>
+  <Tab title="iOS App Store">
+    Build and sign an `.ipa` for upload to [App Store Connect](https://appstoreconnect.apple.com):
+
+    ```bash
+    fyne release -os ios \
+      -certificate "Apple Distribution" \
+      -profile "My App Distribution" \
+      -appID "com.example.myapp" \
+      -appVersion 1.0.0 \
+      -appBuild 1
+    ```
+
+    This produces `MyApp.ipa` in the current directory. Upload it to App Store Connect with Xcode's Organiser, `altool`, or `xcrun notarytool`.
+
+    **Required flags**
+
+    | Flag | Description |
+    |---|---|
+    | `-certificate` | Name of your **Apple Distribution** certificate in Keychain (defaults to `"Apple Distribution"`) |
+    | `-profile` | Name of your App Store distribution provisioning profile |
+    | `-appID` | Must match the bundle ID registered in App Store Connect |
+    | `-appVersion` | Semantic version (`x.y.z`) |
+    | `-appBuild` | Integer build number, must be unique per version on App Store Connect |
+
+    <Tip>
+      The provisioning profile must be downloaded from the Apple Developer portal and installed in Xcode before running `fyne release`.
+    </Tip>
+  </Tab>
+
+  <Tab title="Mac App Store">
+    Build, sign, and package a `.pkg` for submission to the Mac App Store:
+
+    ```bash
+    fyne release -os darwin \
+      -certificate "3rd Party Mac Developer Application: Your Name (TEAMID)" \
+      -profile "My Mac App Distribution" \
+      -category productivity \
+      -appID "com.example.myapp" \
+      -appVersion 1.0.0 \
+      -appBuild 1
+    ```
+
+    Fyne codesigns the `.app` bundle with `codesign`, runs `productbuild` to create an unsigned `.pkg`, then signs the package with `productsign` using the **Mac Developer Installer** certificate (derived automatically from the `-certificate` value).
+
+    **Required flags**
+
+    | Flag | Description |
+    |---|---|
+    | `-certificate` | Name of your **3rd Party Mac Developer Application** certificate |
+    | `-profile` | Mac App Store distribution provisioning profile |
+    | `-category` | App Store category (e.g. `productivity`, `utilities`, `games`) |
+    | `-appID` | Reverse-DNS bundle identifier |
+    | `-appVersion` | Semantic version |
+    | `-appBuild` | Integer build number |
+
+    <Note>
+      The `-category` flag is required and must match one of Apple's [accepted category identifiers](https://developer.apple.com/documentation/bundleresources/information_property_list/lsapplicationcategorytype). Examples: `business`, `developer-tools`, `education`, `games`, `productivity`, `utilities`.
+    </Note>
+  </Tab>
+
+  <Tab title="Google Play (Android)">
+    Build and sign an APK for submission to the Google Play Store:
+
+    ```bash
+    fyne release -os android \
+      -keyStore mykey.keystore \
+      -keyStorePass mypassword \
+      -keyName mykey \
+      -appID com.example.myapp \
+      -appVersion 1.0.0 \
+      -appBuild 1
+    ```
+
+    Fyne packages the APK, runs `zipalign` for store compliance, then signs it with `jarsigner` using your keystore.
+
+    **Required flags**
+
+    | Flag | Description |
+    |---|---|
+    | `-keyStore` | Path to your `.keystore` file |
+    | `-keyStorePass` | Password for the keystore file (prompted from stdin if omitted) |
+    | `-keyName` | Alias of the signing key within the keystore (required for Play Store `.aab` signing) |
+    | `-keyPass` | Password for the private key (if different from `-keyStorePass`) |
+    | `-appID` | Reverse-DNS package name — must be identical across all releases |
+    | `-appVersion` | Semantic version |
+    | `-appBuild` | Integer version code, must be strictly greater than the last published build |
+
+    <Warning>
+      Never lose your keystore file. Google Play ties app updates to the signing
+      key — if you lose it you cannot publish updates to the same listing.
+    </Warning>
+
+    Generate a new keystore with the JDK `keytool` if you don't have one yet:
+
+    ```bash
+    keytool -genkey -v \
+      -keystore mykey.keystore \
+      -alias mykey \
+      -keyalg RSA \
+      -keysize 2048 \
+      -validity 10000
+    ```
+  </Tab>
+
+  <Tab title="Microsoft Store (Windows)">
+    Build and sign an `.appx` package for submission to the Microsoft Store:
+
+    ```bash
+    fyne release -os windows \
+      -certificate path\to\mycert.pfx \
+      -password certpassword \
+      -developer "CN=My Company, O=My Company, L=City, S=State, C=US" \
+      -appID com.example.myapp \
+      -appVersion 1.0.0 \
+      -appBuild 1
+    ```
+
+    Fyne creates an `appxmanifest.xml` from your metadata, calls `makeappx.exe` (from the Windows SDK) to bundle the package, then signs the `.appx` with `signtool.exe`.
+
+    **Required flags**
+
+    | Flag | Description |
+    |---|---|
+    | `-certificate` | Path to a `.pfx` certificate file |
+    | `-password` | Password for the certificate |
+    | `-developer` | Publisher identity from your Microsoft Partner Center account — format: `"CN=Company, O=Company, L=City, S=State, C=Country"` |
+    | `-appID` | Reverse-DNS app identifier |
+    | `-appVersion` | Semantic version |
+    | `-appBuild` | Integer build number |
+
+    <Note>
+      `makeappx.exe` and `signtool.exe` are part of the Windows SDK. Install
+      the SDK via the Visual Studio Installer or download it directly from
+      Microsoft.
+    </Note>
+  </Tab>
+</Tabs>
+
+## Version management
+
+Both `-appVersion` and `-appBuild` are required by every store platform. Use them consistently:
+
+| Flag | Format | Example | Purpose |
+|---|---|---|---|
+| `-appVersion` | `x`, `x.y`, or `x.y.z` | `1.2.3` | Human-readable version displayed in the store listing |
+| `-appBuild` | Positive integer | `42` | Internal build counter; must increment with every store submission |
+
+If you store these values in `FyneApp.toml`, `fyne package` automatically increments `Build` after each successful build:
+
+```toml
+[Details]
+ID      = "com.example.myapp"
+Name    = "My App"
+Version = "1.2.3"
+Build   = 42
+```
+
+Override at the command line to take precedence over the toml file:
+
+```bash
+fyne release -os ios -appVersion 1.3.0 -appBuild 43 \
+  -certificate "Apple Distribution" -profile "My App Distribution" \
+  -appID com.example.myapp
+```
+
+## Setting app metadata
+
+Beyond version numbers you can embed display name, icon, and custom key-value pairs into the release build:
+
+```toml
+[Details]
+Icon    = "Icon.png"
+Name    = "My App"
+ID      = "com.example.myapp"
+Version = "1.2.3"
+Build   = 42
+
+[Release]
+HelperText = "This binary was built without debug symbols."
+
+[Development]
+HelperText = "This binary was built with debug symbols."
+```
+
+Values under `[Release]` are only injected when `fyne release` (or `fyne package -release`) is used; values under `[Development]` are injected for normal debug builds. Read them at runtime via `app.Metadata().Custom`:
+
+```go
+a := app.New()
+text := a.Metadata().Custom["HelperText"]
+```
+
+## Developer accounts and certificates
+
+Each store has its own setup process before `fyne release` can sign a build:
+
+<CardGroup cols={2}>
+  <Card title="Apple (iOS & macOS)" icon="apple" href="https://developer.apple.com/account">
+    Enroll in the Apple Developer Program ($99/year). Create an App ID, provisioning profile, and distribution certificate in the Apple Developer portal, then download and install them through Xcode.
+  </Card>
+  <Card title="Google Play" icon="android" href="https://play.google.com/console">
+    Register for a Google Play Developer account ($25 one-time fee). Create a keystore locally with `keytool` and upload your app's signing key to Play App Signing if you opt in to Google-managed signing.
+  </Card>
+  <Card title="Microsoft Store" icon="windows" href="https://partner.microsoft.com/dashboard">
+    Create a Microsoft Partner Center account (free). Obtain a code-signing certificate from a trusted Certificate Authority or from the Partner Center, and note your exact Publisher identity string.
+  </Card>
+  <Card title="Fyne Release docs" icon="book" href="https://developer.fyne.io/started/packaging">
+    The official Fyne developer site has additional platform-specific walkthrough guides for each store submission process.
+  </Card>
+</CardGroup>

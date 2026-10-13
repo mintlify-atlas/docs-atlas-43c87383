@@ -1,0 +1,425 @@
+---
+title: "Dialogs: File Picker, Color, Forms, and More"
+sidebarTitle: "Dialogs"
+description: "Complete reference for Fyne's dialog package — information, error, confirm, custom, form, file open/save, folder, color picker, and progress dialogs."
+---
+
+Fyne's `dialog` package provides a collection of pre-built overlay dialogs that follow the platform's look and feel. Every dialog requires a parent `fyne.Window`, which anchors it visually and ensures it appears centred above the correct application window. Dialogs do not block the goroutine — they display immediately and communicate results through callbacks.
+
+<Note>
+Import the dialog package with:
+
+```go
+import "fyne.io/fyne/v2/dialog"
+```
+</Note>
+
+---
+
+## Why dialogs require a parent window
+
+All dialog constructors and `Show*` helpers accept a `parent fyne.Window` parameter. Fyne uses this to:
+
+- Determine the canvas on which the modal overlay is rendered.
+- Centre the dialog relative to the parent window.
+- Ensure keyboard focus is returned to the correct window when the dialog closes.
+
+Always pass the window that the user is currently interacting with.
+
+---
+
+## Information dialog
+
+Displays a message with a single **OK** button.
+
+```go
+dialog.ShowInformation("Success", "Your file was saved.", myWindow)
+```
+
+To create without immediately showing:
+
+```go
+d := dialog.NewInformation("Note", "Settings have been applied.", myWindow)
+d.Show()
+```
+
+**Constructor signatures**
+
+```go
+func ShowInformation(title, message string, parent fyne.Window)
+func NewInformation(title, message string, parent fyne.Window) Dialog
+```
+
+---
+
+## Error dialog
+
+Displays an error message extracted from a Go `error` value. The first letter is automatically uppercased.
+
+```go
+if err != nil {
+    dialog.ShowError(err, myWindow)
+}
+```
+
+**Constructor signatures**
+
+```go
+func ShowError(err error, parent fyne.Window)
+func NewError(err error, parent fyne.Window) Dialog
+```
+
+---
+
+## Confirm dialog
+
+Asks a yes/no question. The callback receives `true` when the user taps **Yes** and `false` for **No** or dismissal.
+
+```go
+dialog.ShowConfirm(
+    "Delete file?",
+    "Are you sure you want to delete 'report.pdf'?",
+    func(confirmed bool) {
+        if confirmed {
+            deleteFile()
+        }
+    },
+    myWindow,
+)
+```
+
+**Constructor signatures**
+
+```go
+func ShowConfirm(title, message string, callback func(bool), parent fyne.Window)
+func NewConfirm(title, message string, callback func(bool), parent fyne.Window) *ConfirmDialog
+```
+
+The returned `*ConfirmDialog` lets you customise the button:
+
+```go
+d := dialog.NewConfirm("Delete?", "This cannot be undone.", onConfirm, myWindow)
+d.SetConfirmText("Yes, delete it")
+d.SetConfirmImportance(widget.DangerImportance)
+d.Show()
+```
+
+---
+
+## Custom dialog
+
+Wraps any `fyne.CanvasObject` in a dialog frame. Use `NewCustom` for a single dismiss button, `NewCustomWithoutButtons` when you want to control buttons entirely yourself via `SetButtons`.
+
+```go
+content := container.NewVBox(
+    widget.NewLabel("Choose an option:"),
+    widget.NewRadioGroup([]string{"Option A", "Option B"}, nil),
+)
+
+dialog.ShowCustom("Pick one", "Close", content, myWindow)
+```
+
+**Constructor signatures**
+
+```go
+func ShowCustom(title, dismiss string, content fyne.CanvasObject, parent fyne.Window)
+func NewCustom(title, dismiss string, content fyne.CanvasObject, parent fyne.Window) *CustomDialog
+
+func ShowCustomWithoutButtons(title string, content fyne.CanvasObject, parent fyne.Window)
+func NewCustomWithoutButtons(title string, content fyne.CanvasObject, parent fyne.Window) *CustomDialog
+```
+
+For a custom dialog with both a confirm and a cancel button, use `NewCustomConfirm`:
+
+```go
+d := dialog.NewCustomConfirm(
+    "Confirm action",
+    "Proceed",   // confirm button text
+    "Cancel",    // dismiss button text
+    myContent,
+    func(ok bool) { fmt.Println("result:", ok) },
+    myWindow,
+)
+d.Show()
+```
+
+---
+
+## Form dialog
+
+Presents a list of `*widget.FormItem` values inside a dialog. The **Submit** button is automatically disabled while any widget with a `Validator` reports an error.
+
+```go
+nameEntry := widget.NewEntry()
+emailEntry := widget.NewEntry()
+emailEntry.Validator = validation.NewRegexp(
+    `^[^@]+@[^@]+\.[^@]+$`, "invalid email",
+)
+
+items := []*widget.FormItem{
+    widget.NewFormItem("Name", nameEntry),
+    widget.NewFormItem("Email", emailEntry),
+}
+
+dialog.ShowForm(
+    "New user",      // title
+    "Create",        // confirm button label
+    "Cancel",        // dismiss button label
+    items,
+    func(ok bool) {
+        if ok {
+            createUser(nameEntry.Text, emailEntry.Text)
+        }
+    },
+    myWindow,
+)
+```
+
+**Constructor signatures**
+
+```go
+func ShowForm(
+    title, confirm, dismiss string,
+    content []*widget.FormItem,
+    callback func(bool),
+    parent fyne.Window,
+)
+
+func NewForm(
+    title, confirm, dismiss string,
+    items []*widget.FormItem,
+    callback func(bool),
+    parent fyne.Window,
+) *FormDialog
+```
+
+The `*FormDialog` exposes a `Submit()` method to trigger submission programmatically.
+
+---
+
+## File open dialog
+
+Opens a native file-picker dialog. The callback receives a `fyne.URIReadCloser` — read from it and close it when done.
+
+```go
+dialog.ShowFileOpen(func(reader fyne.URIReadCloser, err error) {
+    if err != nil {
+        dialog.ShowError(err, myWindow)
+        return
+    }
+    if reader == nil {
+        return // user cancelled
+    }
+    defer reader.Close()
+
+    data, _ := io.ReadAll(reader)
+    fmt.Println("file content length:", len(data))
+}, myWindow)
+```
+
+To restrict visible file types, call `SetFilter` before `Show`:
+
+```go
+d := dialog.NewFileOpen(callback, myWindow)
+d.SetFilter(storage.NewExtensionFileFilter([]string{".txt", ".md"}))
+d.Show()
+```
+
+**Constructor signatures**
+
+```go
+func ShowFileOpen(callback func(fyne.URIReadCloser, error), parent fyne.Window)
+func NewFileOpen(callback func(fyne.URIReadCloser, error), parent fyne.Window) *FileDialog
+```
+
+**Useful `FileDialog` methods**
+
+```go
+d.SetFilter(storage.FileFilter)        // restrict visible file types
+d.SetLocation(u fyne.ListableURI)      // set starting directory
+d.SetFileName("default.txt")           // pre-fill the filename field
+d.SetConfirmText("Open")               // rename the confirm button
+d.SetDismissText("Abort")              // rename the cancel button
+d.SetView(dialog.GridView)             // switch to grid thumbnail view
+```
+
+---
+
+## File save dialog
+
+Shows a file-picker in save mode. The callback receives a `fyne.URIWriteCloser`.
+
+```go
+dialog.ShowFileSave(func(writer fyne.URIWriteCloser, err error) {
+    if err != nil || writer == nil {
+        return
+    }
+    defer writer.Close()
+
+    _, _ = writer.Write([]byte("hello fyne"))
+}, myWindow)
+```
+
+**Constructor signatures**
+
+```go
+func ShowFileSave(callback func(fyne.URIWriteCloser, error), parent fyne.Window)
+func NewFileSave(callback func(fyne.URIWriteCloser, error), parent fyne.Window) *FileDialog
+```
+
+---
+
+## Folder open dialog
+
+Shows a file-picker restricted to directories. The callback receives a `fyne.ListableURI`.
+
+```go
+dialog.ShowFolderOpen(func(dir fyne.ListableURI, err error) {
+    if err != nil || dir == nil {
+        return
+    }
+    fmt.Println("chosen folder:", dir.Path())
+}, myWindow)
+```
+
+**Constructor signatures**
+
+```go
+func ShowFolderOpen(callback func(fyne.ListableURI, error), parent fyne.Window)
+func NewFolderOpen(callback func(fyne.ListableURI, error), parent fyne.Window) *FileDialog
+```
+
+---
+
+## Color picker dialog
+
+Presents a full-featured HSL colour wheel with an optional advanced RGBA panel.
+
+```go
+dialog.ShowColorPicker(
+    "Pick accent colour",
+    "Choose the accent colour for the chart.",
+    func(c color.Color) {
+        myChart.SetAccent(c)
+    },
+    myWindow,
+)
+```
+
+To enable the advanced panel by default:
+
+```go
+d := dialog.NewColorPicker("Color", "", callback, myWindow)
+d.Advanced = true
+d.Show()
+
+// Update the pre-selected colour
+d.SetColor(color.RGBA{R: 255, A: 255})
+```
+
+**Constructor signatures**
+
+```go
+func ShowColorPicker(title, message string, callback func(color.Color), parent fyne.Window)
+func NewColorPicker(title, message string, callback func(color.Color), parent fyne.Window) *ColorPickerDialog
+```
+
+---
+
+## Progress dialogs
+
+<Warning>
+Both `NewProgress` and `NewProgressInfinite` are **deprecated** as of Fyne 2. Use `dialog.NewCustomWithoutButtons` with a `widget.ProgressBar` or `widget.ProgressBarInfinite` instead.
+</Warning>
+
+### Determinate progress (deprecated)
+
+```go
+// Deprecated — prefer NewCustomWithoutButtons + ProgressBar
+d := dialog.NewProgress("Uploading", "Please wait…", myWindow)
+d.Show()
+d.SetValue(0.5) // 50% complete
+// …
+d.Hide()
+```
+
+### Indeterminate progress (deprecated)
+
+```go
+// Deprecated — prefer NewCustomWithoutButtons + ProgressBarInfinite
+d := dialog.NewProgressInfinite("Processing", "This may take a moment…", myWindow)
+d.Show()
+// …
+d.Hide() // also stops the animation
+```
+
+### Recommended pattern
+
+```go
+bar := widget.NewProgressBarInfinite()
+d := dialog.NewCustomWithoutButtons("Processing", bar, myWindow)
+d.Show()
+
+go func() {
+    doHeavyWork()
+    d.Hide()
+}()
+```
+
+---
+
+## Complete example — file open with error handling
+
+```go
+package main
+
+import (
+    "io"
+
+    "fyne.io/fyne/v2"
+    "fyne.io/fyne/v2/app"
+    "fyne.io/fyne/v2/dialog"
+    "fyne.io/fyne/v2/storage"
+    "fyne.io/fyne/v2/widget"
+)
+
+func main() {
+    a := app.New()
+    w := a.NewWindow("File Demo")
+    w.Resize(fyne.NewSize(400, 200))
+
+    result := widget.NewLabel("No file selected.")
+
+    openBtn := widget.NewButton("Open text file", func() {
+        d := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
+            if err != nil {
+                dialog.ShowError(err, w)
+                return
+            }
+            if reader == nil {
+                return
+            }
+            defer reader.Close()
+
+            data, readErr := io.ReadAll(reader)
+            if readErr != nil {
+                dialog.ShowError(readErr, w)
+                return
+            }
+            result.SetText(string(data[:min(200, len(data))]))
+        }, w)
+        d.SetFilter(storage.NewExtensionFileFilter([]string{".txt", ".md"}))
+        d.Show()
+    })
+
+    w.SetContent(container.NewVBox(openBtn, result))
+    w.ShowAndRun()
+}
+
+func min(a, b int) int {
+    if a < b {
+        return a
+    }
+    return b
+}
+```

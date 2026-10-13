@@ -1,0 +1,103 @@
+---
+title: "Fyne Widget Library Overview"
+sidebarTitle: "Overview"
+description: "Explore Fyne's built-in widget library: input controls, display elements, collection views, and dialogs for building cross-platform GUI apps."
+---
+
+Fyne ships a rich set of ready-made widgets that cover the most common needs of a desktop or mobile application — from simple buttons and labels to virtualized collection views and full-featured dialogs. Every widget is theme-aware, accessibility-friendly, and works identically on Linux, macOS, Windows, iOS, and Android.
+
+## Widget categories
+
+<CardGroup cols={2}>
+  <Card title="Input Widgets" icon="keyboard" href="/widgets/input">
+    Buttons, text entries, checkboxes, radio groups, sliders, selects, forms, and date pickers — everything you need to collect data from users.
+  </Card>
+  <Card title="Display Widgets" icon="eye" href="/widgets/display">
+    Labels, icons, hyperlinks, rich text, accordions, cards, toolbars, progress bars, pop-ups, and the calendar widget for presenting information.
+  </Card>
+  <Card title="Collection Widgets" icon="table" href="/widgets/collections">
+    High-performance virtualised List, Table, Tree, and GridWrap widgets for rendering thousands of rows without lag.
+  </Card>
+  <Card title="Dialogs" icon="window" href="/widgets/dialogs">
+    File pickers, color choosers, confirmation prompts, form dialogs, and progress dialogs from the `dialog` package.
+  </Card>
+</CardGroup>
+
+---
+
+## What is a widget in Fyne?
+
+A widget is any Go struct that implements the `fyne.Widget` interface:
+
+```go
+type Widget interface {
+    CanvasObject          // Size, Position, Refresh, Hide/Show …
+    CreateRenderer() WidgetRenderer
+}
+```
+
+`CreateRenderer()` is the bridge between your widget's data model and the canvas primitives (`canvas.Rectangle`, `canvas.Text`, `canvas.Image`, …) that actually get drawn. You never call it yourself — Fyne's rendering engine calls it once and caches the renderer.
+
+### BaseWidget
+
+Almost every built-in widget embeds `widget.BaseWidget`, which gives you:
+
+| Method | Purpose |
+|---|---|
+| `ExtendBaseWidget(w)` | Must be called in a constructor so the widget can reference its own concrete type. |
+| `Refresh()` | Marks the widget dirty and schedules a redraw. |
+| `Show()` / `Hide()` | Toggle widget visibility. |
+| `Resize(s)` / `Move(p)` | Geometry management (usually done by a layout). |
+| `MinSize()` | Returns the smallest acceptable size. |
+
+```go
+type MyWidget struct {
+    widget.BaseWidget
+    Label string
+}
+
+func NewMyWidget(label string) *MyWidget {
+    w := &MyWidget{Label: label}
+    w.ExtendBaseWidget(w)   // required
+    return w
+}
+```
+
+### Widget rendering model
+
+```
+Widget struct
+  └─ CreateRenderer() fyne.WidgetRenderer
+        ├─ Objects() []fyne.CanvasObject   ← what gets drawn
+        ├─ Layout(fyne.Size)               ← positions & resizes objects
+        ├─ MinSize() fyne.Size
+        └─ Refresh()                       ← syncs widget state → canvas
+```
+
+The renderer pattern means Fyne can pool and reuse renderers for collection widgets (List, Table, Tree, GridWrap) — only the *visible* rows are ever rendered.
+
+### Extending existing widgets
+
+You can embed any existing widget and override its behaviour:
+
+```go
+type TappableLabel struct {
+    widget.Label
+    OnTapped func()
+}
+
+func NewTappableLabel(text string, tapped func()) *TappableLabel {
+    tl := &TappableLabel{OnTapped: tapped}
+    tl.ExtendBaseWidget(tl)
+    tl.SetText(text)
+    return tl
+}
+
+func (tl *TappableLabel) Tapped(*fyne.PointEvent) {
+    if tl.OnTapped != nil {
+        tl.OnTapped()
+    }
+}
+```
+
+For a deeper guide on writing completely custom widgets from scratch, see [Custom Widgets](/extending/custom-widgets).

@@ -1,0 +1,287 @@
+---
+title: "Data Binding — Fyne API Reference"
+sidebarTitle: "data/binding"
+description: "Fyne data binding API: DataItem, typed binding constructors, external bindings, preference bindings, converters, and list/map binding operations."
+---
+
+The `data/binding` package makes widget state reactive. A binding is a thread-safe container for a typed value that notifies registered listeners whenever the value changes. Widgets that accept a binding (e.g. `widget.NewLabelWithData`, `widget.NewEntryWithData`) automatically update their display when the bound value changes, and write back to the binding when the user edits the widget. All binding APIs are safe to call from any goroutine.
+
+```go
+import "fyne.io/fyne/v2/data/binding"
+```
+
+---
+
+## Core Interfaces
+
+### `DataItem`
+
+```go
+type DataItem interface {
+    AddListener(DataListener)
+    RemoveListener(DataListener)
+}
+```
+
+The base interface for all bindable values. `AddListener` also triggers an immediate `DataChanged` call so the listener can initialize itself from the current value.
+
+### `DataListener`
+
+```go
+type DataListener interface {
+    DataChanged()
+}
+```
+
+Implemented by anything that wants to react to data changes. Create one from a plain function with:
+
+```go
+func NewDataListener(fn func()) DataListener
+```
+
+### `Item[T]` *(Since 2.6)*
+
+```go
+type Item[T any] interface {
+    DataItem
+    Get() (T, error)
+    Set(T) error
+}
+```
+
+Generic typed binding. Concrete aliases (`Bool`, `Float`, `Int`, `String`, etc.) are provided for common types.
+
+### `ExternalItem[T]` *(Since 2.6)*
+
+```go
+type ExternalItem[T any] interface {
+    Item[T]
+    Reload() error
+}
+```
+
+An `Item` backed by an external variable pointer. Call `Reload()` after mutating the underlying variable outside the binding.
+
+---
+
+## Scalar Binding Types
+
+| Type alias | Underlying | Constructor | External constructor |
+|------------|-----------|-------------|----------------------|
+| `Bool` | `Item[bool]` | `NewBool() Bool` | `BindBool(v *bool) ExternalBool` |
+| `Float` | `Item[float64]` | `NewFloat() Float` | `BindFloat(v *float64) ExternalFloat` |
+| `Int` | `Item[int]` | `NewInt() Int` | `BindInt(v *int) ExternalInt` |
+| `Rune` | `Item[rune]` | `NewRune() Rune` | `BindRune(v *rune) ExternalRune` |
+| `String` | `Item[string]` | `NewString() String` | `BindString(v *string) ExternalString` |
+| `Bytes` | `Item[[]byte]` | `NewBytes() Bytes` | `BindBytes(v *[]byte) ExternalBytes` |
+| `URI` | `Item[fyne.URI]` | `NewURI() URI` | `BindURI(v *fyne.URI) ExternalURI` |
+| `Untyped` | `Item[any]` | `NewUntyped() Untyped` | `BindUntyped(v any) ExternalUntyped` |
+
+```go
+// Internally managed
+count := binding.NewInt()
+count.Set(42)
+val, _ := count.Get()
+
+// Widget usage
+label := widget.NewLabelWithData(binding.IntToString(count))
+
+// Backed by external variable
+n := 10
+ext := binding.BindInt(&n)
+ext.Set(99) // updates n and notifies listeners
+ext.Reload() // re-reads n after an external mutation
+```
+
+### Generic `NewItem` / `BindItem` *(Since 2.6)*
+
+```go
+func NewItem[T any](comparator func(T, T) bool) Item[T]
+func BindItem[T any](val *T, comparator func(T, T) bool) ExternalItem[T]
+```
+
+For arbitrary types not covered by the aliases above.
+
+---
+
+## List Binding Types
+
+Lists hold an ordered slice of `T` values and expose individual items as `DataItem` through `GetItem`.
+
+### `DataList`
+
+```go
+type DataList interface {
+    DataItem
+    GetItem(index int) (DataItem, error)
+    Length() int
+}
+```
+
+### `List[T]` *(Since 2.7)*
+
+```go
+type List[T any] interface {
+    DataList
+    Append(value T) error
+    Get() ([]T, error)
+    GetValue(index int) (T, error)
+    Prepend(value T) error
+    Remove(value T) error
+    Set(list []T) error
+    SetValue(index int, value T) error
+}
+```
+
+### Convenience aliases and constructors
+
+| Type | Constructor | Bind external |
+|------|-------------|---------------|
+| `BoolList` | `NewBoolList()` | `BindBoolList(v *[]bool)` |
+| `FloatList` | `NewFloatList()` | `BindFloatList(v *[]float64)` |
+| `IntList` | `NewIntList()` | `BindIntList(v *[]int)` |
+| `RuneList` | `NewRuneList()` | `BindRuneList(v *[]rune)` |
+| `StringList` | `NewStringList()` | `BindStringList(v *[]string)` |
+| `BytesList` | `NewBytesList()` | `BindBytesList(v *[][]byte)` |
+| `URIList` | `NewURIList()` | `BindURIList(v *[]fyne.URI)` |
+| `UntypedList` | `NewUntypedList()` | `BindUntypedList(v *[]any)` |
+
+Generic:
+```go
+func NewList[T any](comparator func(T, T) bool) List[T]
+func BindList[T any](v *[]T, comparator func(T, T) bool) ExternalList[T]
+```
+
+```go
+names := binding.NewStringList()
+names.Append("Alice")
+names.Append("Bob")
+
+list := widget.NewListWithData(names,
+    func() fyne.CanvasObject { return widget.NewLabel("") },
+    func(di binding.DataItem, o fyne.CanvasObject) {
+        o.(*widget.Label).Bind(di.(binding.String))
+    },
+)
+```
+
+---
+
+## Map Bindings
+
+### `StringMap`
+
+```go
+// NewStringMap returns a bindable map of string → string values.
+func NewStringMap() StringMap
+func BindStringMap(v *map[string]string) ExternalStringMap
+```
+
+`StringMap` implements `DataMap` with `Get()`, `Set()`, `GetValue(key)`, `SetValue(key, value)`, `Delete(key)`, `Keys()`, and `Length()`.
+
+---
+
+## Preference Bindings
+
+Preference bindings automatically persist their values through `fyne.Preferences` and react to external preference changes.
+
+```go
+func BindPreferenceBool(key string, p fyne.Preferences) Bool
+func BindPreferenceFloat(key string, p fyne.Preferences) Float
+func BindPreferenceInt(key string, p fyne.Preferences) Int
+func BindPreferenceString(key string, p fyne.Preferences) String
+
+// List variants — Since: 2.6
+func BindPreferenceBoolList(key string, p fyne.Preferences) BoolList
+func BindPreferenceFloatList(key string, p fyne.Preferences) FloatList
+func BindPreferenceIntList(key string, p fyne.Preferences) IntList
+func BindPreferenceStringList(key string, p fyne.Preferences) StringList
+```
+
+```go
+prefs := fyne.CurrentApp().Preferences()
+volume := binding.BindPreferenceFloat("volume", prefs)
+slider := widget.NewSliderWithData(0, 1, volume)
+```
+
+<Note>
+Preference bindings share the same underlying `DataItem` instance for the same `key`+`Preferences` pair. Multiple callers asking for the same key receive the same binding object.
+</Note>
+
+---
+
+## Data Converters
+
+Converters create a derived binding from an existing one. Changes propagate bidirectionally where possible.
+
+### Numeric converters
+
+```go
+func IntToFloat(val Int) Float     // Since: 2.5
+func FloatToInt(v Float) Int       // Since: 2.5
+```
+
+### To-string converters
+
+```go
+func BoolToString(v Bool) String
+func BoolToStringWithFormat(v Bool, format string) String
+
+func FloatToString(v Float) String
+func FloatToStringWithFormat(v Float, format string) String
+
+func IntToString(v Int) String
+func IntToStringWithFormat(v Int, format string) String
+
+func URIToString(v URI) String  // Since: 2.1
+```
+
+### From-string converters
+
+```go
+func StringToBool(str String) Bool
+func StringToBoolWithFormat(str String, format string) Bool
+
+func StringToFloat(str String) Float
+func StringToFloatWithFormat(str String, format string) Float
+
+func StringToInt(str String) Int
+func StringToIntWithFormat(str String, format string) Int
+
+func StringToURI(str String) URI  // Since: 2.1
+```
+
+### Generic converter *(Since 2.8)*
+
+```go
+func ItemToString[T any](
+    v Item[T],
+    formatter func(T) (string, error),
+    parser func(string) (T, error),
+    comparator func(T, T) bool,
+) String
+```
+
+```go
+// Display an int as "Value: 42"
+countStr := binding.IntToStringWithFormat(count, "Value: %d")
+label := widget.NewLabelWithData(countStr)
+```
+
+---
+
+## `NewDataListener`
+
+```go
+func NewDataListener(fn func()) DataListener
+```
+
+A helper that wraps a plain function as a `DataListener`. Use it to observe binding changes without creating a full struct.
+
+```go
+count := binding.NewInt()
+count.AddListener(binding.NewDataListener(func() {
+    v, _ := count.Get()
+    fmt.Println("count changed:", v)
+}))
+```

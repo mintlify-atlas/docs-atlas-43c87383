@@ -1,0 +1,308 @@
+---
+title: "Reactive Data Binding in Fyne"
+sidebarTitle: "Data Binding"
+description: "Use Fyne's data binding package to keep UI widgets automatically in sync with your application state, preferences, and external data sources."
+---
+
+Data binding is Fyne's mechanism for keeping UI widgets automatically synchronized with application state. Instead of manually calling `label.SetText(value)` every time something changes, you declare a binding — a smart container that holds a value — and attach widgets to it. When the value changes, every attached widget updates on its own. The result is UI code that is easier to read, less error-prone, and trivially reactive.
+
+## Core Binding Types
+
+The `fyne.io/fyne/v2/data/binding` package provides typed binding items for the most common primitive types:
+
+| Type | Go type | Constructor |
+|------|---------|-------------|
+| `binding.String` | `string` | `binding.NewString()` |
+| `binding.Float` | `float64` | `binding.NewFloat()` |
+| `binding.Bool` | `bool` | `binding.NewBool()` |
+| `binding.Int` | `int` | `binding.NewInt()` |
+
+Each binding type is an alias for the generic `binding.Item[T]` interface, which provides `Get()`, `Set()`, `AddListener()`, and `RemoveListener()`:
+
+```go
+import "fyne.io/fyne/v2/data/binding"
+
+// Create bindings
+name  := binding.NewString()
+score := binding.NewFloat()
+ready := binding.NewBool()
+count := binding.NewInt()
+
+// Write values
+name.Set("Alice")
+score.Set(98.6)
+ready.Set(true)
+count.Set(42)
+
+// Read values
+n, err := name.Get()
+s, err := score.Get()
+```
+
+### Binding External Variables
+
+If you already have a variable you want to keep in sync, use `binding.BindString`, `binding.BindFloat`, etc.:
+
+```go
+var myString string
+bound := binding.BindString(&myString)
+bound.Set("hello")     // updates myString
+fmt.Println(myString)  // "hello"
+```
+
+## Listening for Changes
+
+All binding items implement the `DataItem` interface — you can attach any number of listeners that fire whenever the value changes:
+
+```go
+listener := binding.NewDataListener(func() {
+    val, _ := score.Get()
+    fmt.Printf("Score changed: %v\n", val)
+})
+
+score.AddListener(listener)
+// …later, to stop listening:
+score.RemoveListener(listener)
+```
+
+<Tip>
+  Listeners are always called on the main goroutine, so it is safe to call Fyne
+  APIs — including `widget.Refresh()` — directly from a listener callback.
+</Tip>
+
+## Binding Widgets to Data
+
+Fyne's standard widgets have `WithData` constructors that accept a binding and wire themselves up automatically. The widget reads the current value at construction time and refreshes itself whenever the binding changes. Editable widgets also push user input back to the binding.
+
+### Label
+
+```go
+name := binding.NewString()
+name.Set("World")
+
+label := widget.NewLabelWithData(name)
+// label shows "World" immediately; updates when name.Set(...) is called
+```
+
+### Entry
+
+Two-way binding: the entry updates when the binding changes, and the binding updates when the user types.
+
+```go
+username := binding.NewString()
+
+entry := widget.NewEntryWithData(username)
+entry.SetPlaceHolder("Enter your name")
+```
+
+### Check (checkbox)
+
+```go
+agreed := binding.NewBool()
+check  := widget.NewCheckWithData("I agree to the terms", agreed)
+```
+
+### Slider
+
+```go
+volume := binding.NewFloat()
+volume.Set(0.5)
+
+slider := widget.NewSliderWithData(0.0, 1.0, volume)
+```
+
+### Progress Bar
+
+```go
+progress := binding.NewFloat()
+
+bar := widget.NewProgressBarWithData(progress)
+
+// Simulate progress
+go func() {
+    for i := 0; i <= 100; i++ {
+        progress.Set(float64(i) / 100)
+        time.Sleep(50 * time.Millisecond)
+    }
+}()
+```
+
+## Preference Bindings
+
+Preference bindings persist their value across app restarts using `fyne.Preferences` (requires a unique app ID set via `app.NewWithID`). The widget stays in sync with the preference store automatically.
+
+```go
+prefs := fyne.CurrentApp().Preferences()
+
+// Each of these reads the stored value immediately and writes back on change
+langBinding   := binding.BindPreferenceString("language", prefs)
+darkBinding   := binding.BindPreferenceBool("darkMode", prefs)
+zoomBinding   := binding.BindPreferenceFloat("zoom", prefs)
+pageBinding   := binding.BindPreferenceInt("lastPage", prefs)
+
+// Attach to widgets as normal
+langEntry  := widget.NewEntryWithData(langBinding)
+darkToggle := widget.NewCheckWithData("Dark mode", darkBinding)
+zoomSlider := widget.NewSliderWithData(0.5, 3.0, zoomBinding)
+```
+
+<Note>
+  Preference bindings share the same underlying preference key, so a single key
+  can be accessed by multiple bindings or widgets simultaneously. The last
+  `Set()` call wins.
+</Note>
+
+## List and Map Bindings
+
+### String List
+
+```go
+items := binding.NewStringList()
+items.Set([]string{"Apple", "Banana", "Cherry"})
+
+// Append
+items.Append("Date")
+
+// Access by index
+val, _ := items.GetValue(0) // "Apple"
+
+// Bind to a list widget
+list := widget.NewListWithData(items,
+    func() fyne.CanvasObject { return widget.NewLabel("") },
+    func(item binding.DataItem, obj fyne.CanvasObject) {
+        obj.(*widget.Label).Bind(item.(binding.String))
+    },
+)
+```
+
+### Untyped Map
+
+```go
+m := binding.NewUntypedMap()
+m.SetValue("key1", 42)
+m.SetValue("key2", "hello")
+```
+
+## Data Converters
+
+Converters transform one binding type into another, allowing widgets that expect a `String` to display numeric data without manual formatting code.
+
+```go
+count := binding.NewInt()
+count.Set(7)
+
+// Display as string in a label
+countStr := binding.IntToString(count)
+label := widget.NewLabelWithData(countStr)
+
+// Float to string
+temp := binding.NewFloat()
+temp.Set(36.6)
+tempStr := binding.FloatToString(temp)
+
+// With a custom printf format
+tempFormatted := binding.FloatToStringWithFormat(temp, "%.1f °C")
+
+// Bool to string
+active := binding.NewBool()
+activeStr := binding.BoolToString(active)
+```
+
+Available converters: `binding.IntToString`, `binding.IntToStringWithFormat`, `binding.FloatToString`, `binding.FloatToStringWithFormat`, `binding.BoolToString`, `binding.BoolToStringWithFormat`.
+
+### Printf-style Composite Binding
+
+Combine multiple bindings into a formatted string with `binding.NewSprintf`:
+
+```go
+first := binding.NewString()
+last  := binding.NewString()
+first.Set("Jane")
+last.Set("Doe")
+
+full := binding.NewSprintf("%s %s", first, last)
+label := widget.NewLabelWithData(full)
+// Shows "Jane Doe", updates automatically when either changes
+```
+
+## Full Working Example: Bound Counter
+
+```go
+package main
+
+import (
+    "fmt"
+
+    "fyne.io/fyne/v2"
+    "fyne.io/fyne/v2/app"
+    "fyne.io/fyne/v2/container"
+    "fyne.io/fyne/v2/data/binding"
+    "fyne.io/fyne/v2/widget"
+)
+
+func main() {
+    a := app.NewWithID("com.example.counter")
+    w := a.NewWindow("Bound Counter")
+
+    // Persisted across restarts
+    prefs := a.Preferences()
+    count := binding.BindPreferenceInt("count", prefs)
+
+    // Format the integer as a string for the label
+    countStr := binding.IntToStringWithFormat(count, "Count: %d")
+
+    label  := widget.NewLabelWithData(countStr)
+    label.TextStyle = fyne.TextStyle{Bold: true}
+
+    slider := widget.NewSliderWithData(0, 100,
+        binding.IntToFloat(count),  // thin converter: Int → Float for slider
+    )
+
+    incBtn := widget.NewButton("+1", func() {
+        v, _ := count.Get()
+        count.Set(v + 1)
+    })
+    decBtn := widget.NewButton("−1", func() {
+        v, _ := count.Get()
+        if v > 0 {
+            count.Set(v - 1)
+        }
+    })
+    resetBtn := widget.NewButton("Reset", func() { count.Set(0) })
+
+    buttons := container.NewHBox(decBtn, resetBtn, incBtn)
+
+    w.SetContent(container.NewVBox(
+        container.NewCenter(label),
+        slider,
+        buttons,
+    ))
+    w.Resize(fyne.NewSize(360, 180))
+    w.ShowAndRun()
+}
+```
+
+<Note>
+  `binding.IntToFloat` used in the slider example is a convenience converter
+  available in the binding package. Because `widget.Slider` works with
+  `binding.Float`, you need to bridge from `Int` whenever you want an integer
+  preference displayed on a float-based slider.
+</Note>
+
+## External Struct Binding
+
+Bind an entire struct to a map-like interface with `binding.BindStruct`. Each exported field becomes a bindable key:
+
+```go
+type Config struct {
+    Theme string
+    Scale float64
+}
+
+cfg := &Config{Theme: "dark", Scale: 1.5}
+bound := binding.BindStruct(cfg)
+
+// Get/set individual fields
+themeItem, _ := bound.GetItem("Theme")
+themeItem.(binding.String).Set("light")
+```

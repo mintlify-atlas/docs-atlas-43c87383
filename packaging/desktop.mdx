@@ -1,0 +1,269 @@
+---
+title: "Package and Install Fyne Apps for Desktop"
+sidebarTitle: "Desktop"
+description: "Learn how to package Fyne apps for Windows, macOS, and Linux using the fyne CLI — producing native bundles, installers, and embedded resources."
+---
+
+Fyne's `fyne` CLI tool turns your Go source into a proper native application bundle for every major desktop platform. On Windows it embeds the icon and version metadata directly into the `.exe`; on macOS it builds a `.app` bundle with an `.icns` icon; on Linux and BSD it creates a `.tar.xz` archive that unpacks into the standard `usr/local` directory tree alongside a Freedesktop `.desktop` file. A single `fyne package` command handles all the platform-specific boilerplate so you can stay focused on your application code.
+
+## Install the fyne CLI
+
+Install the `fyne` command-line tool with the standard `go install` command. It lives in the separate `fyne.io/tools` module:
+
+```bash
+go install fyne.io/tools/cmd/fyne@latest
+```
+
+<Note>
+  Fyne requires CGo on every desktop platform. Make sure you have a C compiler
+  (`gcc` on Linux/macOS, `tdm-gcc` or MSVC on Windows) available in your
+  `PATH` before running any `fyne` command.
+</Note>
+
+## Package for your platform
+
+Run `fyne package` from the root of your Go module. The tool reads your `FyneApp.toml` (if present), builds the binary, and wraps it in the appropriate platform bundle.
+
+<Tabs>
+  <Tab title="Windows">
+    ```bash
+    fyne package -os windows -appID com.example.myapp -appVersion 1.0.0 -appBuild 1
+    ```
+
+    Fyne compiles your application, converts `Icon.png` to a `.ico`, embeds it along with the version resource into the executable, and produces a standalone `.exe` in the current directory.
+
+    **Key flags**
+
+    | Flag | Description |
+    |---|---|
+    | `-os windows` | Target platform |
+    | `-appID` | Reverse-DNS identifier (required for release builds) |
+    | `-appVersion` | Semantic version string, e.g. `1.2.3` |
+    | `-appBuild` | Integer build number, incremented each build |
+    | `-icon` | Path to a PNG icon (defaults to `Icon.png`) |
+
+    <Tip>
+      Sign the resulting `.exe` with `signtool.exe` from the Windows SDK for
+      trusted distribution outside the Microsoft Store.
+    </Tip>
+  </Tab>
+
+  <Tab title="macOS">
+    ```bash
+    fyne package -os darwin -appID com.example.myapp -appVersion 1.0.0 -appBuild 1
+    ```
+
+    The command produces a `MyApp.app` bundle in the current directory with the correct `Contents/Info.plist`, the binary inside `Contents/MacOS/`, and the icon converted to `.icns` in `Contents/Resources/`.
+
+    **Key flags**
+
+    | Flag | Description |
+    |---|---|
+    | `-os darwin` | Target platform |
+    | `-appID` | Reverse-DNS bundle identifier |
+    | `-certificate` | Name of the Developer ID certificate for ad-hoc signing |
+    | `-appVersion` | Semantic version string |
+
+    <Note>
+      For distribution outside the Mac App Store, code-sign the `.app` bundle
+      with your **Developer ID Application** certificate. Use `fyne release`
+      (covered in the [Release guide](/packaging/release)) for App Store
+      submission.
+    </Note>
+  </Tab>
+
+  <Tab title="Linux / BSD">
+    ```bash
+    fyne package -os linux -appID com.example.myapp -appVersion 1.0.0 -appBuild 1
+    ```
+
+    Fyne creates a `MyApp.tar.xz` archive that extracts into the standard `usr/local/` hierarchy:
+
+    ```
+    usr/local/bin/myapp          # compiled binary
+    usr/local/share/pixmaps/     # PNG icon
+    usr/local/share/applications/MyApp.desktop  # Freedesktop entry
+    usr/local/share/Makefile     # optional make install helper
+    ```
+
+    On OpenBSD the archive uses `.tar.gz` instead of `.tar.xz`.
+
+    **Freedesktop metadata** is read from the `[LinuxAndBSD]` section of `FyneApp.toml`:
+
+    ```toml
+    [LinuxAndBSD]
+    GenericName = "Image Editor"
+    Categories  = ["Graphics"]
+    Comment     = "A simple image editor built with Fyne."
+    Keywords    = ["image", "editor"]
+    ```
+  </Tab>
+</Tabs>
+
+## Install to the OS application location
+
+After packaging, use `fyne install` to copy the bundle to the system's standard application directory in one step — no manual copying required:
+
+```bash
+fyne install
+```
+
+For mobile targets supply `-os`:
+
+```bash
+fyne install -os android
+```
+
+Default install locations per platform:
+
+| Platform | Location |
+|---|---|
+| macOS | `/Applications` |
+| Linux / BSD | `/` (the tarball extracts to `usr/local/…`) |
+| Windows | `%ProgramFiles%\<AppName>` (elevated prompt) |
+
+You can override the destination with `-installDir`:
+
+```bash
+fyne install -installDir ~/Applications
+```
+
+## Embed resources and icons
+
+Use `fyne bundle` to embed static files — icons, fonts, images — as Go variables that are compiled directly into your binary. No separate asset files are needed at runtime.
+
+```bash
+fyne bundle -o bundled.go Icon.png
+```
+
+This generates a `bundled.go` file in the `main` package:
+
+```go
+// auto-generated
+// Code generated by '$ fyne bundle'. DO NOT EDIT.
+
+package main
+
+import "fyne.io/fyne/v2"
+
+var resourceIconPng = &fyne.StaticResource{
+    StaticName:    "Icon.png",
+    StaticContent: []byte("\x89PNG\r\n…"),
+}
+```
+
+Use the bundled resource in your app:
+
+```go
+package main
+
+import (
+    "fyne.io/fyne/v2/app"
+)
+
+func main() {
+    a := app.New()
+    a.SetIcon(resourceIconPng) // variable from bundled.go
+    // …
+}
+```
+
+**Bundle multiple files** into the same output file with `-append`:
+
+```bash
+fyne bundle -o bundled.go logo.png
+fyne bundle -o bundled.go -append background.jpg
+```
+
+**Bundle an entire directory** by passing a directory path instead of a file:
+
+```bash
+fyne bundle -o bundled.go assets/
+```
+
+<Tip>
+  Name the variable explicitly with `-name` to make code clearer:
+
+  ```bash
+  fyne bundle -o bundled.go -name resourceAppIcon Icon.png
+  ```
+</Tip>
+
+## App metadata with FyneApp.toml
+
+Place a `FyneApp.toml` file in the root of your Go module to centralise all packaging metadata. The `fyne` CLI reads this file automatically — you no longer need to pass `-appID`, `-appVersion`, or `-name` on every command invocation.
+
+```toml
+[Details]
+Icon    = "Icon.png"
+Name    = "My App"
+ID      = "com.example.myapp"
+Version = "1.2.0"
+Build   = 4
+
+[LinuxAndBSD]
+GenericName = "Productivity Tool"
+Categories  = ["Utility"]
+Comment     = "A cross-platform productivity app."
+Keywords    = ["productivity", "fyne"]
+
+[Source]
+Repo = "https://github.com/example/myapp"
+Dir  = "."
+```
+
+The `Build` counter is automatically incremented by `fyne package` after each successful build, so you only need to manually update `Version` when you cut a release.
+
+You can also set metadata at runtime with `app.SetMetadata`:
+
+```go
+package main
+
+import (
+    "fyne.io/fyne/v2"
+    "fyne.io/fyne/v2/app"
+)
+
+func main() {
+    a := app.New()
+    app.SetMetadata(fyne.AppMetadata{
+        ID:      "com.example.myapp",
+        Name:    "My App",
+        Version: "1.2.0",
+        Build:   4,
+    })
+    // …
+}
+```
+
+<Note>
+  `app.Preferences()` requires a unique app ID. Use `app.NewWithID("com.example.myapp")` or set the `ID` field in `FyneApp.toml` to avoid a logged warning.
+</Note>
+
+## Build tags
+
+Pass comma-separated build tags to `fyne package` with `-tags`:
+
+```bash
+fyne package -os darwin -tags nativefiledialogs,pro
+```
+
+Use build tags in your own source to conditionally compile platform-specific features:
+
+```go
+//go:build nativefiledialogs
+
+package main
+
+// platform-specific dialog implementation
+```
+
+The special `mobile` tag activates a mobile-like simulation window on desktop for quick layout testing:
+
+```bash
+go run -tags mobile main.go
+```
+
+<Warning>
+  CGo is required on **all** desktop platforms. If CGo is disabled (`CGO_ENABLED=0`) the Fyne driver cannot initialise a graphics context and your app will not compile. Ensure you have a compatible C toolchain installed before building.
+</Warning>

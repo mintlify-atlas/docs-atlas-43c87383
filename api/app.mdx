@@ -1,0 +1,284 @@
+---
+title: "App & Window — Fyne API Reference"
+sidebarTitle: "app"
+description: "Complete reference for fyne.App, fyne.Window, and fyne.Preferences. Learn how to create, configure, and run Fyne GUI applications across platforms."
+---
+
+The `app` package is the entry point for every Fyne GUI program. It provides two constructor functions—`app.New()` and `app.NewWithID()`—that return a `fyne.App` value, which owns the event loop, all windows, application preferences, storage, and lifecycle hooks. A `fyne.App` manages one or more `fyne.Window` values and blocks in `Run()` until all windows are closed or `Quit()` is called.
+
+## Constructors
+
+```go
+import "fyne.io/fyne/v2/app"
+```
+
+### `app.New`
+
+```go
+func New() fyne.App
+```
+
+Returns a new `fyne.App` backed by the platform driver. If a `FyneApp.toml` file is present the metadata ID is used automatically. On CI systems, pass the `-tags ci` build tag to run an in-memory driver instead.
+
+### `app.NewWithID`
+
+```go
+func NewWithID(id string) fyne.App
+```
+
+Like `New()` but also sets the application's unique identifier. The ID is required for persistent `Preferences` and `SecretPreferences` storage.
+
+<ParamField path="id" type="string" required>
+  Reverse-domain identifier such as `"com.example.myapp"`. Must be stable across releases.
+</ParamField>
+
+```go
+package main
+
+import (
+    "fyne.io/fyne/v2/app"
+    "fyne.io/fyne/v2/widget"
+)
+
+func main() {
+    a := app.NewWithID("com.example.hello")
+    w := a.NewWindow("Hello")
+    w.SetContent(widget.NewLabel("Hello, Fyne!"))
+    w.ShowAndRun()
+}
+```
+
+---
+
+## `fyne.App` Interface
+
+`fyne.App` is the central interface that represents a running Fyne application. There is exactly one instance per process.
+
+```go
+type App interface {
+    NewWindow(title string) Window
+    OpenURL(*url.URL) error
+    Icon() Resource
+    SetIcon(Resource)
+    Run()
+    Quit()
+    Driver() Driver
+    UniqueID() string
+    SendNotification(*Notification)
+    ScheduleNotification(n *Notification, deliverAt time.Time) (*ScheduledNotification, error)
+    CancelScheduledNotification(id string) error
+    Settings() Settings
+    Preferences() Preferences
+    SecretPreferences(password []byte) (Preferences, error)
+    Storage() Storage
+    Lifecycle() Lifecycle
+    Metadata() AppMetadata
+    CloudProvider() CloudProvider
+    SetCloudProvider(CloudProvider)
+    Clipboard() Clipboard
+    Cache() Cache
+}
+```
+
+### Methods
+
+| Method | Description |
+|--------|-------------|
+| `NewWindow(title string) Window` | Creates a new application window. The first window opened is the "master" — closing it exits the app unless overridden. |
+| `OpenURL(*url.URL) error` | Opens a URL in the system's default browser. |
+| `Icon() Resource` | Returns the application icon used in the OS shell and as the default window icon. |
+| `SetIcon(Resource)` | Replaces the application icon. |
+| `Run()` | Starts the event loop. Blocks until `Quit()` is called or the last window closes. Call near the end of `main()`. |
+| `Quit()` | Closes all windows and exits the event loop cleanly. No-op on mobile (the OS manages lifecycle). |
+| `Driver() Driver` | Returns the platform driver. Rarely needed outside of internal code. |
+| `UniqueID() string` | Returns the app's unique ID set via `NewWithID()` or `FyneApp.toml`. |
+| `SendNotification(*Notification)` | Sends an immediate OS-level system notification. |
+| `ScheduleNotification(n, deliverAt)` | Queues a notification for future delivery; returns a handle to cancel it. *(Since 2.8)* |
+| `CancelScheduledNotification(id string) error` | Cancels a previously scheduled notification. *(Since 2.8)* |
+| `Settings() Settings` | Returns global display settings such as the current theme and variant. |
+| `Preferences() Preferences` | Returns the persistent preference store. Requires `NewWithID()` to persist. |
+| `SecretPreferences(password []byte) (Preferences, error)` | Returns an encrypted preference store. Uses the OS keychain on supported platforms. *(Since 2.9)* |
+| `Storage() Storage` | Returns an app-scoped storage handler. |
+| `Lifecycle() Lifecycle` | Returns lifecycle hooks (foreground/background/start/stop). *(Since 2.1)* |
+| `Metadata() AppMetadata` | Returns build-time metadata populated by `fyne package`. *(Since 2.2)* |
+| `Clipboard() Clipboard` | Returns the system clipboard. *(Since 2.6)* |
+
+<Note>
+`SecretPreferences` may return `fyne.ErrPasswordRequired` on platforms without a system keychain. In that case, obtain a password from the user and call the method again.
+</Note>
+
+### `AppMetadata`
+
+```go
+type AppMetadata struct {
+    ID       string
+    Name     string
+    Version  string
+    Build    int
+    Icon     Resource
+    Release  bool
+    Custom   map[string]string
+    Migrations map[string]bool
+}
+```
+
+### `Lifecycle`
+
+```go
+type Lifecycle interface {
+    SetOnEnteredForeground(func())
+    SetOnExitedForeground(func())
+    SetOnStarted(func())
+    SetOnStopped(func())
+}
+```
+
+```go
+a.Lifecycle().SetOnEnteredForeground(func() {
+    fmt.Println("App came to foreground")
+})
+```
+
+---
+
+## `fyne.Window` Interface
+
+Each call to `App.NewWindow()` returns a `fyne.Window`. A window owns a canvas and its content tree.
+
+```go
+type Window interface {
+    Title() string
+    SetTitle(string)
+    FullScreen() bool
+    SetFullScreen(bool)
+    Resize(Size)
+    RequestFocus()
+    FixedSize() bool
+    SetFixedSize(bool)
+    CenterOnScreen()
+    Padded() bool
+    SetPadded(bool)
+    Icon() Resource
+    SetIcon(Resource)
+    SetMaster()
+    MainMenu() *MainMenu
+    SetMainMenu(*MainMenu)
+    SetOnClosed(func())
+    SetCloseIntercept(func())
+    SetOnDropped(func(Position, []URI))
+    Show()
+    Hide()
+    Close()
+    ShowAndRun()
+    Content() CanvasObject
+    SetContent(CanvasObject)
+    Canvas() Canvas
+    Clipboard() Clipboard // Deprecated: use App.Clipboard()
+}
+```
+
+### Key Methods
+
+| Method | Description |
+|--------|-------------|
+| `SetContent(CanvasObject)` | Replaces the window content. Can be called at any time to swap the UI. |
+| `Content() CanvasObject` | Returns the current content tree root. |
+| `Canvas() Canvas` | Returns the underlying canvas for low-level operations such as focus management. |
+| `Resize(Size)` | Requests the window to adopt a specific content size. Platform constraints may alter the result. |
+| `SetFixedSize(bool)` | When `true`, prevents the user from resizing the window. |
+| `CenterOnScreen()` | Centers the window on the display it currently occupies. |
+| `SetTitle(string)` / `Title() string` | Gets or sets the window title bar text. |
+| `SetIcon(Resource)` / `Icon() Resource` | Gets or sets the per-window icon. Defaults to the app icon. |
+| `SetMaster()` | Marks this window as the master — closing it will exit the app. |
+| `SetOnClosed(func())` | Runs the callback after the window closes. |
+| `SetCloseIntercept(func())` | Intercepts the close action; you must call `Close()` explicitly inside the hook. *(Since 1.4)* |
+| `Show()` | Makes the window visible. |
+| `Hide()` | Hides the window without destroying it. |
+| `Close()` | Closes and destroys the window. |
+| `ShowAndRun()` | Convenience wrapper that calls `Show()` then `App.Run()`. Use in `main()`. |
+| `RequestFocus()` | Brings the window to the foreground and focuses it. |
+| `SetPadded(bool)` | When `false`, content fills the window edge-to-edge. Useful for graphical apps. |
+| `SetFullScreen(bool)` | Enters or exits full-screen mode. |
+
+```go
+w := a.NewWindow("Editor")
+w.SetContent(widget.NewLabel("Welcome"))
+w.Resize(fyne.NewSize(800, 600))
+w.CenterOnScreen()
+w.SetCloseIntercept(func() {
+    // ask user to save before closing
+    dialog.ShowConfirm("Quit?", "Save before exit?", func(ok bool) {
+        if ok { /* save */ }
+        w.Close()
+    }, w)
+})
+w.Show()
+```
+
+---
+
+## `fyne.Preferences` Interface
+
+`Preferences` stores typed key-value pairs that persist between app launches. Access it via `App.Preferences()`. Preferences are saved automatically on change when the app has a unique ID.
+
+```go
+type Preferences interface {
+    Bool(key string) bool
+    BoolWithFallback(key string, fallback bool) bool
+    SetBool(key string, value bool)
+
+    Float(key string) float64
+    FloatWithFallback(key string, fallback float64) float64
+    SetFloat(key string, value float64)
+
+    Int(key string) int
+    IntWithFallback(key string, fallback int) int
+    SetInt(key string, value int)
+
+    String(key string) string
+    StringWithFallback(key string, fallback string) string
+    SetString(key string, value string)
+
+    RemoveValue(key string)
+    AddChangeListener(func())
+    ChangeListeners() []func()
+}
+```
+
+### Methods
+
+| Method | Description |
+|--------|-------------|
+| `Bool(key)` | Returns the stored bool, or `false` if not set. |
+| `BoolWithFallback(key, fallback)` | Returns the stored bool, or `fallback` if not set. |
+| `SetBool(key, value)` | Stores a bool value. |
+| `Float(key)` | Returns the stored float64, or `0` if not set. |
+| `FloatWithFallback(key, fallback)` | Returns the stored float64, or `fallback` if not set. |
+| `SetFloat(key, value)` | Stores a float64 value. |
+| `Int(key)` | Returns the stored int, or `0` if not set. |
+| `IntWithFallback(key, fallback)` | Returns the stored int, or `fallback` if not set. |
+| `SetInt(key, value)` | Stores an int value. |
+| `String(key)` | Returns the stored string, or `""` if not set. |
+| `StringWithFallback(key, fallback)` | Returns the stored string, or `fallback` if not set. |
+| `SetString(key, value)` | Stores a string value. |
+| `RemoveValue(key)` | Deletes the value for the given key. |
+| `AddChangeListener(func())` | Registers a callback invoked on any preference change. |
+
+```go
+prefs := a.Preferences()
+
+// Read with a default
+volume := prefs.FloatWithFallback("volume", 0.8)
+
+// Write
+prefs.SetFloat("volume", 0.5)
+
+// React to changes
+prefs.AddChangeListener(func() {
+    fmt.Println("preferences changed")
+})
+```
+
+<Warning>
+Preferences are stored in plain text. Do not store passwords or sensitive tokens — use `App.SecretPreferences()` instead.
+</Warning>

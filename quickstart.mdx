@@ -1,47 +1,125 @@
 ---
-title: "Quickstart"
-description: "Begin with a guide on the fastest path to a successful outcome"
+title: "Get Started with Fyne in Go"
+sidebarTitle: "Quickstart"
+description: "Install Fyne, scaffold a Go module, write your first windowed app, and run it on desktop or in the mobile simulator in under five minutes."
 ---
 
-Describe how someone begins using your product. What is the first thing they need to do? Are there any prerequisites?
+In this guide you will create a small desktop application that displays a greeting label and a button. When the button is clicked the label text changes — a simple but complete demonstration of Fyne's reactive widget model. The whole thing fits in a single `main.go` file and runs with one command.
 
-A quickstart should take someone from zero to using your product. They'll get a quick win and a sense of what they can accomplish.
+<Note>
+  Make sure Go 1.22+, a C compiler, and your platform's development headers are installed before continuing. See the [Prerequisites](/prerequisites) page for step-by-step setup instructions for every supported OS.
+</Note>
 
-## Prerequisites
-
-Before you begin, you must have:
-
-- Requirement one (for example, Node.js 18+, a free account, an API key)
-- Requirement two (for example, a compatible device, a compatible browser, a compatible operating system)
-
-## Get started
+## Steps
 
 <Steps>
-  <Step title="Install">
-    Describe how to install your product or sign up.
+  <Step title="Create a Go module">
+    Create a new directory for your project and initialise a Go module inside it:
 
     ```bash
-    npm install your-package
+    mkdir myapp && cd myapp
+    go mod init myapp
     ```
+
+    The module name (`myapp`) can be any valid Go module path. Use a reverse-DNS style name (e.g. `com.example.myapp`) if you plan to package the app for mobile stores.
   </Step>
-  <Step title="Configure">
-    Describe any setup or configuration needed before first use.
+
+  <Step title="Add Fyne as a dependency">
+    Download the latest Fyne release and tidy the module graph:
 
     ```bash
-    your-cli init
+    go get fyne.io/fyne/v2@latest
+    go mod tidy
     ```
+
+    <Note>
+      As of Go 1.18, `go get` only registers the module in `go.mod` — it does not resolve transitive dependencies. Running `go mod tidy` afterwards pulls in everything Fyne needs and removes any unused entries.
+    </Note>
   </Step>
-  <Step title="Run it">
-    Show the first thing a user does to see it working.
+
+  <Step title="Write the Hello World app">
+    Create a file called `main.go` with the following content. Every identifier used here comes directly from the Fyne public API:
+
+    ```go
+    package main
+
+    import (
+        "fyne.io/fyne/v2/app"
+        "fyne.io/fyne/v2/container"
+        "fyne.io/fyne/v2/widget"
+    )
+
+    func main() {
+        a := app.New()
+        w := a.NewWindow("Hello")
+
+        hello := widget.NewLabel("Hello Fyne!")
+        w.SetContent(container.NewVBox(
+            hello,
+            widget.NewButton("Hi!", func() {
+                hello.SetText("Welcome :)")
+            }),
+        ))
+
+        w.ShowAndRun()
+    }
+    ```
+
+    Here is what each part does:
+
+    - `app.New()` — creates a new `fyne.App` backed by the default desktop driver.
+    - `a.NewWindow("Hello")` — asks the driver to create a titled OS window and returns a `fyne.Window`.
+    - `widget.NewLabel` / `widget.NewButton` — standard widgets from the `widget` package.
+    - `container.NewVBox` — arranges its children in a vertical stack.
+    - `w.ShowAndRun()` — makes the window visible and starts the Fyne event loop; it blocks until the last window is closed.
+  </Step>
+
+  <Step title="Run on desktop">
+    From your project directory, run:
 
     ```bash
-    your-cli start
+    go run main.go
     ```
+
+    A small window will appear with the label and button. Click **Hi!** to see the label update.
+
+    <Note>
+      The **first** compilation of Fyne on Windows can take up to 10 minutes depending on your hardware because CGo must compile the underlying OpenGL bindings. Subsequent builds are fast thanks to Go's build cache.
+    </Note>
+  </Step>
+
+  <Step title="Try the mobile simulator">
+    Fyne includes a mobile simulation mode that wraps your app in a phone-shaped chrome so you can preview layout and touch targets without a physical device:
+
+    ```bash
+    go run -tags mobile main.go
+    ```
+
+    The window will resize to a portrait phone form factor and touch events will be simulated by mouse clicks.
   </Step>
 </Steps>
 
-<Tip>
-  Give people a way to get help. This could be a link to a support page, a chat with a customer support agent, or a forum for your product.
+## Explore the widget demo
 
-  Example: Need help? Reach out to us at [support@yourcompany.com](mailto:support@yourcompany.com).
-</Tip>
+The official Fyne demo app is the quickest way to see every built-in widget and theme option in action. Install and run it with:
+
+```bash
+go install fyne.io/demo@latest
+demo
+```
+
+The demo showcases buttons, sliders, lists, tables, rich text, dialogs, and much more — all using the same APIs available to your own apps.
+
+## Next steps
+
+<CardGroup cols={3}>
+  <Card title="App & Windows" icon="window-restore" href="/concepts/app-and-windows">
+    Learn how the `fyne.App` and `fyne.Window` types work together to manage your application's lifecycle.
+  </Card>
+  <Card title="Widgets Overview" icon="table-columns" href="/widgets/overview">
+    Browse every built-in widget: inputs, displays, collections, and containers.
+  </Card>
+  <Card title="Packaging for Desktop" icon="box-archive" href="/packaging/desktop">
+    Bundle your app with an icon and metadata, then distribute it as a native installer.
+  </Card>
+</CardGroup>

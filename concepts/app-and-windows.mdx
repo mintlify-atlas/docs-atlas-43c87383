@@ -1,0 +1,235 @@
+---
+title: "Apps and Windows in Fyne"
+sidebarTitle: "Apps & Windows"
+description: "Learn how to create and manage Fyne applications and windows, covering lifecycle, preferences, settings, and multiple-window patterns."
+---
+
+Every Fyne program begins with a single `App` instance that owns the event loop and all platform resources. Windows are created from that app and represent the visible surfaces your users interact with. Understanding the relationship between `App` and `Window` — and the lifecycle methods that govern them — is the essential first step to building cross-platform GUI software with Fyne.
+
+## Creating an App
+
+Use `app.New()` for a quick start, or `app.NewWithID(id)` when you need persistent preferences or secret storage. The unique ID should follow reverse-DNS notation so Fyne can scope its on-disk storage correctly.
+
+```go
+import (
+    "fyne.io/fyne/v2/app"
+)
+
+// Simple app — no persistent preferences
+a := app.New()
+
+// App with a unique ID for persistent storage
+a := app.NewWithID("com.example.myapp")
+```
+
+<Note>
+  Always use `app.NewWithID()` in production. Without a unique ID, calls to
+  `a.Preferences()` log a warning and the returned store is not persisted across
+  restarts.
+</Note>
+
+## Creating Windows
+
+Call `a.NewWindow(title)` to create a `fyne.Window`. The first window created is automatically designated the **master** window — closing it exits the entire application.
+
+```go
+w := a.NewWindow("Hello, Fyne")
+```
+
+Set what the window displays with `SetContent`, then make it visible:
+
+```go
+import "fyne.io/fyne/v2/widget"
+
+w.SetContent(widget.NewLabel("Welcome!"))
+w.Show()
+```
+
+### Common Window Operations
+
+<CardGroup cols={2}>
+  <Card title="Resize" icon="arrows-maximize">
+    `w.Resize(fyne.NewSize(800, 600))` — request a specific content size. The OS may adjust the final dimensions.
+  </Card>
+  <Card title="Fixed Size" icon="lock">
+    `w.SetFixedSize(true)` — prevent the user from resizing the window.
+  </Card>
+  <Card title="Center on Screen" icon="crosshairs">
+    `w.CenterOnScreen()` — position the window at the center of its current monitor.
+  </Card>
+  <Card title="Full Screen" icon="expand">
+    `w.SetFullScreen(true)` — toggle full-screen mode programmatically.
+  </Card>
+</CardGroup>
+
+```go
+w := a.NewWindow("Dashboard")
+w.Resize(fyne.NewSize(1024, 768))
+w.SetFixedSize(false)
+w.CenterOnScreen()
+w.SetIcon(resourceIconPng) // fyne.Resource loaded via fyne bundle
+w.SetTitle("My App — Dashboard")
+```
+
+### Intercepting the Close Button
+
+`SetCloseIntercept` lets you run custom logic — such as showing a confirmation dialog — before a window actually closes. You must call `w.Close()` explicitly inside the interceptor when you want the window to proceed with closing.
+
+```go
+w.SetCloseIntercept(func() {
+    dialog.ShowConfirm("Quit?", "Are you sure you want to quit?",
+        func(ok bool) {
+            if ok {
+                w.Close()
+            }
+        }, w)
+})
+```
+
+### Promoting a Window to Master
+
+Any window can be made the master window after creation. When a master window closes the whole application exits, regardless of other open windows.
+
+```go
+secondary := a.NewWindow("Settings")
+secondary.SetMaster() // closing this window now exits the app
+```
+
+## App Lifecycle
+
+<Steps>
+  <Step title="Construct the app">
+    Call `app.New()` or `app.NewWithID()` at the top of `main()`.
+  </Step>
+  <Step title="Create the main window">
+    Call `a.NewWindow(title)`, set its content, resize it, and position it.
+  </Step>
+  <Step title="Start the event loop">
+    Call `w.ShowAndRun()` (shortcut) **or** call `w.Show()` followed by `a.Run()`. Both block until the app exits.
+  </Step>
+  <Step title="Quit programmatically">
+    Call `a.Quit()` from anywhere in your code. On mobile, this is a no-op — the OS controls the lifecycle there.
+  </Step>
+</Steps>
+
+```go
+package main
+
+import (
+    "fyne.io/fyne/v2/app"
+    "fyne.io/fyne/v2/widget"
+)
+
+func main() {
+    a := app.NewWithID("com.example.myapp")
+    w := a.NewWindow("Counter")
+
+    count := 0
+    label := widget.NewLabel("Count: 0")
+    btn := widget.NewButton("Increment", func() {
+        count++
+        label.SetText(fmt.Sprintf("Count: %d", count))
+    })
+
+    w.SetContent(container.NewVBox(label, btn))
+    w.Resize(fyne.NewSize(300, 120))
+    w.ShowAndRun()
+}
+```
+
+### Lifecycle Hooks
+
+`a.Lifecycle()` exposes four hooks that fire as the app moves between foreground and background — useful for pausing timers, saving state, or releasing resources on mobile.
+
+```go
+a.Lifecycle().SetOnStarted(func() {
+    fmt.Println("App started")
+})
+a.Lifecycle().SetOnEnteredForeground(func() {
+    fmt.Println("Now in foreground")
+})
+a.Lifecycle().SetOnExitedForeground(func() {
+    fmt.Println("Went to background")
+})
+a.Lifecycle().SetOnStopped(func() {
+    fmt.Println("App stopped")
+})
+```
+
+## Multiple Windows
+
+Fyne supports multiple windows; only the master window's closure triggers app exit. Additional windows can be shown and hidden independently.
+
+```go
+a := app.NewWithID("com.example.multi")
+
+main := a.NewWindow("Main")
+main.SetContent(widget.NewButton("Open Settings", func() {
+    settings := a.NewWindow("Settings")
+    settings.SetContent(widget.NewLabel("Settings panel"))
+    settings.Resize(fyne.NewSize(400, 300))
+    settings.Show()
+}))
+main.ShowAndRun() // master window
+```
+
+<Tip>
+  Prefer `Hide()` / `Show()` over creating a new window every time a panel is
+  toggled. Reusing windows is cheaper and preserves any state the user has
+  entered.
+</Tip>
+
+## Preferences
+
+`a.Preferences()` returns a key-value store that persists across launches (requires a unique app ID). It supports strings, booleans, floats, and integers.
+
+```go
+prefs := a.Preferences()
+
+// Write
+prefs.SetString("username", "alice")
+prefs.SetBool("darkMode", true)
+prefs.SetFloat("zoom", 1.5)
+prefs.SetInt("windowWidth", 1024)
+
+// Read (with defaults)
+name := prefs.StringWithFallback("username", "guest")
+dark := prefs.BoolWithFallback("darkMode", false)
+```
+
+<Warning>
+  `a.Preferences()` stores values in a plain-text file. Use
+  `a.SecretPreferences(password)` for sensitive data such as tokens or
+  passwords; on supported platforms it delegates to the OS keychain.
+</Warning>
+
+## Settings
+
+`a.Settings()` exposes the current theme, scale, and primary color chosen by the user or the app developer.
+
+```go
+settings := a.Settings()
+
+// Override the theme
+settings.SetTheme(theme.DarkTheme())
+
+// Read the current display scale
+scale := settings.Scale()
+
+// Read the user's preferred primary color name (e.g. "blue")
+primary := settings.PrimaryColor()
+
+// Listen for changes (e.g. when the user switches OS dark mode)
+settings.AddListener(func(s fyne.Settings) {
+    fmt.Println("Theme changed to variant:", s.ThemeVariant())
+})
+```
+
+## Sending Notifications
+
+```go
+a.SendNotification(&fyne.Notification{
+    Title:   "Build complete",
+    Content: "Your project compiled successfully.",
+})
+```

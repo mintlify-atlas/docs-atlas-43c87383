@@ -1,0 +1,329 @@
+---
+title: "Theme Package — Fyne API Reference"
+sidebarTitle: "theme"
+description: "Fyne theme API reference: fyne.Theme interface, color names, size names, icon names, TextStyle, ThemeVariant, and shorthand helper functions."
+---
+
+The `theme` package controls the visual appearance of every Fyne widget. A theme is a named set of colors, sizes, fonts, and icons looked up at render time, so a single call to `app.Settings().SetTheme(myTheme)` instantly re-renders the entire UI. The default theme adapts to the operating system's light/dark preference. Custom themes are created by implementing the `fyne.Theme` interface.
+
+```go
+import "fyne.io/fyne/v2/theme"
+```
+
+---
+
+## `fyne.Theme` Interface
+
+```go
+type Theme interface {
+    Color(name ThemeColorName, variant ThemeVariant) color.Color
+    Font(style TextStyle) Resource
+    Icon(name ThemeIconName) Resource
+    Size(name ThemeSizeName) float32
+}
+```
+
+Implement all four methods to create a fully custom theme. For partial customization, embed an existing theme and override only the methods you need.
+
+```go
+type myTheme struct{}
+
+var _ fyne.Theme = (*myTheme)(nil)
+
+func (m *myTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) color.Color {
+    if name == theme.ColorNamePrimary {
+        return color.NRGBA{R: 0xff, G: 0x60, B: 0x00, A: 0xff}
+    }
+    return theme.DefaultTheme().Color(name, variant)
+}
+
+func (m *myTheme) Font(style fyne.TextStyle) fyne.Resource {
+    return theme.DefaultTheme().Font(style)
+}
+
+func (m *myTheme) Icon(name fyne.ThemeIconName) fyne.Resource {
+    return theme.DefaultTheme().Icon(name)
+}
+
+func (m *myTheme) Size(name fyne.ThemeSizeName) float32 {
+    return theme.DefaultTheme().Size(name)
+}
+
+// Apply:
+a.Settings().SetTheme(&myTheme{})
+```
+
+---
+
+## Theme Helper Functions
+
+### `theme.DefaultTheme`
+
+```go
+func DefaultTheme() fyne.Theme
+```
+
+Returns the built-in adaptive theme that switches between light and dark based on the OS preference.
+
+### `theme.DarkTheme`
+
+```go
+func DarkTheme() fyne.Theme
+```
+
+Returns a fixed dark variant. **Deprecated** — use a custom theme or `DefaultTheme()` instead; ignores user preference.
+
+### `theme.LightTheme`
+
+```go
+func LightTheme() fyne.Theme
+```
+
+Returns a fixed light variant. **Deprecated** — same caveat as `DarkTheme()`.
+
+### `theme.Current`
+
+```go
+func Current() fyne.Theme
+```
+
+Returns the effective theme currently applied to the running application. *(Since 2.5)*
+
+### `theme.CurrentForWidget`
+
+```go
+func CurrentForWidget(w fyne.CanvasObject) fyne.Theme
+```
+
+Like `Current()` but respects per-widget theme overrides set via a `container.ThemeOverride` container. *(Since 2.5)*
+
+---
+
+## `ThemeVariant` Constants
+
+```go
+const (
+    VariantDark  fyne.ThemeVariant = 0
+    VariantLight fyne.ThemeVariant = 1
+)
+```
+
+Used in `fyne.Theme.Color()` to select the appropriate palette for the current user preference.
+
+---
+
+## `ThemeColorName` Constants
+
+Look up colors by name from the active theme using `theme.Color(name)`.
+
+| Constant | String key | Description |
+|----------|-----------|-------------|
+| `ColorNameBackground` | `"background"` | Main window and container background. |
+| `ColorNameButton` | `"button"` | Default button fill color. |
+| `ColorNameDisabledButton` | `"disabledButton"` | Button fill when disabled. |
+| `ColorNameDisabled` | `"disabled"` | Text and icon color when disabled. |
+| `ColorNameError` | `"error"` | Error highlight (red). |
+| `ColorNameFocus` | `"focus"` | Border/ring around focused widget. |
+| `ColorNameForeground` | `"foreground"` | Default text and icon color. |
+| `ColorNameForegroundOnError` | `"foregroundOnError"` | Contrast color for text on error backgrounds. *(Since 2.5)* |
+| `ColorNameForegroundOnPrimary` | `"foregroundOnPrimary"` | Contrast color for text on primary backgrounds. *(Since 2.5)* |
+| `ColorNameForegroundOnSuccess` | `"foregroundOnSuccess"` | Contrast color for text on success backgrounds. *(Since 2.5)* |
+| `ColorNameForegroundOnWarning` | `"foregroundOnWarning"` | Contrast color for text on warning backgrounds. *(Since 2.5)* |
+| `ColorNameHeaderBackground` | `"headerBackground"` | Background behind collection headers. *(Since 2.4)* |
+| `ColorNameHover` | `"hover"` | Overlay tint when a cursor hovers over a widget. |
+| `ColorNameHyperlink` | `"hyperlink"` | Link color in text. *(Since 2.4)* |
+| `ColorNameInputBackground` | `"inputBackground"` | Background of entry fields and inputs. |
+| `ColorNameInputBorder` | `"inputBorder"` | Border color of entry fields. *(Since 2.3)* |
+| `ColorNameMenuBackground` | `"menuBackground"` | Background of menus and pop-up menus. *(Since 2.3)* |
+| `ColorNameOverlayBackground` | `"overlayBackground"` | Background of dialogs and overlays. *(Since 2.3)* |
+| `ColorNamePlaceHolder` | `"placeholder"` | Placeholder text in an empty entry. |
+| `ColorNamePressed` | `"pressed"` | Tap overlay on interactive elements. |
+| `ColorNamePrimary` | `"primary"` | Accent/brand color (blue by default). |
+| `ColorNameScrollBar` | `"scrollBar"` | Scrollbar thumb color. |
+| `ColorNameScrollBarBackground` | `"scrollBarBackground"` | Scrollbar track background. *(Since 2.6)* |
+| `ColorNameSelection` | `"selection"` | Highlight behind selected text. *(Since 2.1)* |
+| `ColorNameSeparator` | `"separator"` | Thin divider lines. *(Since 2.3)* |
+| `ColorNameShadow` | `"shadow"` | Drop shadow color. |
+| `ColorNameSuccess` | `"success"` | Success state highlight (green). *(Since 2.3)* |
+| `ColorNameWarning` | `"warning"` | Warning state highlight (orange). *(Since 2.3)* |
+
+### Color Shorthand Functions *(Deprecated — use `theme.Color(name)` instead)*
+
+```go
+func BackgroundColor() color.Color
+func ButtonColor() color.Color
+func ForegroundColor() color.Color
+func PrimaryColor() color.Color
+func HoverColor() color.Color
+func FocusColor() color.Color
+func ErrorColor() color.Color
+func SuccessColor() color.Color
+func WarningColor() color.Color
+func DisabledColor() color.Color
+```
+
+These shorthands remain for backward compatibility. In new code use:
+
+```go
+theme.Color(theme.ColorNamePrimary)
+theme.ColorForWidget(theme.ColorNameForeground, myWidget)
+```
+
+---
+
+## Primary Color Names
+
+The primary color can be changed in user settings. Available names:
+
+```go
+const (
+    ColorRed    = "red"
+    ColorOrange = "orange"
+    ColorYellow = "yellow"
+    ColorGreen  = "green"
+    ColorBlue   = "blue"
+    ColorPurple = "purple"
+    ColorBrown  = "brown"
+    ColorGray   = "gray"
+)
+
+func PrimaryColorNames() []string
+```
+
+---
+
+## `ThemeSizeName` Constants
+
+Look up size values (in Fyne points) from the active theme using `theme.Size(name)`.
+
+| Constant | Default (points) | Description |
+|----------|-----------------|-------------|
+| `SizeNamePadding` | 4 | Standard gap between widget elements and container borders. |
+| `SizeNameInlineIcon` | 20 | Icon size inside buttons and labels. |
+| `SizeNameInnerPadding` | 8 | Padding inside widgets. *(Since 2.3)* |
+| `SizeNameText` | 14 | Body text size. |
+| `SizeNameHeadingText` | 24 | Heading text size. *(Since 2.1)* |
+| `SizeNameSubHeadingText` | 18 | Sub-heading text size. *(Since 2.1)* |
+| `SizeNameCaptionText` | 11 | Caption / helper text size. |
+| `SizeNameSeparatorThickness` | 1 | Thickness of separator lines. |
+| `SizeNameScrollBar` | 12 | Scrollbar width/height. |
+| `SizeNameScrollBarSmall` | 3 | Minimized scrollbar width/height. |
+| `SizeNameInputBorder` | 1 | Entry field underline/border thickness. |
+| `SizeNameInputRadius` | 5 | Corner radius of input fields. *(Since 2.4)* |
+| `SizeNameButtonRadius` | 5 | Corner radius of buttons. *(Since 2.8)* |
+| `SizeNameCardRadius` | 5 | Corner radius of card widgets. *(Since 2.8)* |
+| `SizeNameDialogRadius` | 10 | Corner radius of dialogs. *(Since 2.8)* |
+| `SizeNamePopupRadius` | 5 | Corner radius of pop-ups. *(Since 2.8)* |
+| `SizeNameMenuRadius` | 3 | Corner radius of menus. *(Since 2.8)* |
+| `SizeNameSelectionRadius` | 3 | Selection highlight corner radius. *(Since 2.4)* |
+| `SizeNameLineSpacing` | 4 | Gap between text lines. *(Since 2.3)* |
+
+### Size Shorthand Functions
+
+```go
+func Padding() float32
+func IconInlineSize() float32
+func TextSize() float32
+func TextHeadingSize() float32
+func TextSubHeadingSize() float32
+func CaptionTextSize() float32
+func InnerPadding() float32
+func LineSpacing() float32
+func ScrollBarSize() float32
+func SeparatorThicknessSize() float32
+func InputBorderSize() float32
+func InputRadiusSize() float32
+```
+
+---
+
+## `TextStyle` Struct
+
+```go
+type TextStyle struct {
+    Bold      bool
+    Italic    bool
+    Monospace bool
+    Symbol    bool
+    TabWidth  int
+}
+```
+
+Used to select the correct font from `fyne.Theme.Font()` and to style `canvas.Text` and widget labels.
+
+```go
+boldItalic := fyne.TextStyle{Bold: true, Italic: true}
+canvas.NewText("Important", color.Black).TextStyle = boldItalic
+```
+
+---
+
+## `ThemeIconName` Constants
+
+Retrieve icons from the active theme with `theme.Icon(name)` or via dedicated helper functions.
+
+| Helper | Description |
+|--------|-------------|
+| `theme.HomeIcon()` | House/home navigation icon. |
+| `theme.CancelIcon()` | × close/cancel. |
+| `theme.ConfirmIcon()` | ✓ confirm/checkmark. |
+| `theme.DeleteIcon()` | Trash/delete. |
+| `theme.SearchIcon()` | Magnifying glass. |
+| `theme.MenuIcon()` | Hamburger menu. |
+| `theme.MenuExpandIcon()` | Expand submenu arrow. |
+| `theme.NavigateBackIcon()` | Left arrow / back. |
+| `theme.NavigateNextIcon()` | Right arrow / next. |
+| `theme.SettingsIcon()` | Gear/settings. |
+| `theme.DocumentIcon()` | Generic document. |
+| `theme.DocumentCreateIcon()` | New document. |
+| `theme.DocumentSaveIcon()` | Save document. |
+| `theme.FolderIcon()` | Folder. |
+| `theme.FolderOpenIcon()` | Open folder. |
+| `theme.FolderNewIcon()` | New folder. |
+| `theme.FileIcon()` | Generic file. |
+| `theme.InfoIcon()` | Information (ℹ). |
+| `theme.WarningIcon()` | Warning (⚠). |
+| `theme.ErrorIcon()` | Error. |
+| `theme.QuestionIcon()` | Question mark. |
+| `theme.MediaPlayIcon()` | Play ▶. |
+| `theme.MediaPauseIcon()` | Pause ⏸. |
+| `theme.MediaStopIcon()` | Stop ⏹. |
+| `theme.MediaFastForwardIcon()` | Fast-forward ⏩. |
+| `theme.MediaRewindIcon()` | Rewind ⏪. |
+| `theme.MediaSkipNextIcon()` | Skip next ⏭. |
+| `theme.MediaSkipPreviousIcon()` | Skip previous ⏮. |
+| `theme.DownloadIcon()` | Download arrow. |
+| `theme.UploadIcon()` | Upload arrow. |
+| `theme.ContentCopyIcon()` | Copy to clipboard. |
+| `theme.ContentCutIcon()` | Cut. |
+| `theme.ContentPasteIcon()` | Paste. |
+| `theme.ContentUndoIcon()` | Undo. |
+| `theme.ContentRedoIcon()` | Redo. |
+| `theme.ContentAddIcon()` | Add / + . |
+| `theme.ContentRemoveIcon()` | Remove / − . |
+| `theme.ContentClearIcon()` | Clear. |
+| `theme.GridIcon()` | Grid view. |
+| `theme.ListIcon()` | List view. |
+| `theme.ViewFullScreenIcon()` | Enter full-screen. |
+| `theme.ViewRestoreIcon()` | Exit full-screen. |
+| `theme.ZoomFitIcon()` | Fit to window. |
+| `theme.ZoomInIcon()` | Zoom in. |
+| `theme.ZoomOutIcon()` | Zoom out. |
+| `theme.ColorPaletteIcon()` | Color picker palette. |
+| `theme.CheckButtonIcon()` | Unchecked checkbox. |
+| `theme.CheckButtonCheckedIcon()` | Checked checkbox. |
+| `theme.RadioButtonIcon()` | Unselected radio button. |
+| `theme.RadioButtonCheckedIcon()` | Selected radio button. |
+| `theme.VisibilityIcon()` | Show / eye open. |
+| `theme.VisibilityOffIcon()` | Hide / eye closed. |
+| `theme.MailComposeIcon()` | Compose new email. |
+| `theme.MailSendIcon()` | Send email. |
+| `theme.MailAttachmentIcon()` | Email attachment. |
+| `theme.DesktopIcon()` | Desktop location. |
+| `theme.AccountIcon()` | User account. |
+| `theme.LoginIcon()` | Login. |
+| `theme.LogoutIcon()` | Logout. |
+
+<Tip>
+All icon helper functions return `fyne.Resource` objects. Pass them to `widget.NewButtonWithIcon`, `widget.NewIcon`, or `container.NewTabItemWithIcon`.
+</Tip>

@@ -1,0 +1,305 @@
+---
+title: "Layouts and Containers in Fyne"
+sidebarTitle: "Layouts"
+description: "Master Fyne's container and layout system — VBox, HBox, grid, border, stack, scroll, split, and tab layouts with practical code examples."
+---
+
+Fyne's layout system is how you compose `CanvasObject`s into structured user interfaces without manual pixel math. A `Container` holds a list of child objects and delegates their sizing and positioning to a `Layout`. Fyne ships a comprehensive set of ready-made layouts for the most common UI patterns, and the `Layout` interface lets you implement custom algorithms when you need something bespoke.
+
+## Containers and Layouts
+
+A `fyne.Container` is itself a `CanvasObject` — it can be nested inside other containers, hidden, resized, and refreshed just like any other element. Its two key fields are:
+
+```go
+type Container struct {
+    Layout  fyne.Layout         // controls how children are positioned
+    Objects []fyne.CanvasObject // the children
+}
+```
+
+The `fyne.Layout` interface requires two methods:
+
+```go
+type Layout interface {
+    Layout(objects []CanvasObject, size Size) // position and size the children
+    MinSize(objects []CanvasObject) Size       // report the minimum viable size
+}
+```
+
+The `container` package wraps these into simple constructor functions. The canonical way to create a managed container is `container.New(layout, objects...)`:
+
+```go
+import "fyne.io/fyne/v2/container"
+
+c := container.New(myLayout, obj1, obj2, obj3)
+```
+
+For a container with no automatic layout (manual positioning), use `container.NewWithoutLayout(objects...)`.
+
+## Built-in Layouts
+
+### VBox — Vertical Stack
+
+Children are stacked top-to-bottom, each rendered at its minimum vertical size. Surplus height is left empty beneath the last child.
+
+```go
+vbox := container.NewVBox(
+    widget.NewLabel("First"),
+    widget.NewLabel("Second"),
+    widget.NewButton("Click me", func() {}),
+)
+```
+
+### HBox — Horizontal Stack
+
+Children are placed left-to-right, each at its minimum horizontal size.
+
+```go
+hbox := container.NewHBox(
+    widget.NewIcon(theme.HomeIcon()),
+    widget.NewLabel("Home"),
+    layout.NewSpacer(), // pushes remaining items to the right
+    widget.NewButton("Sign out", func() {}),
+)
+```
+
+<Tip>
+  `layout.NewSpacer()` inserted into an HBox or VBox is the idiomatic way to
+  add flexible whitespace that pushes siblings apart.
+</Tip>
+
+### Grid Layouts
+
+<Tabs>
+  <Tab title="Fixed Columns">
+    ```go
+    // 3 equal-width columns; row count grows automatically
+    grid := container.NewGridWithColumns(3,
+        widget.NewLabel("A"), widget.NewLabel("B"), widget.NewLabel("C"),
+        widget.NewLabel("D"), widget.NewLabel("E"), widget.NewLabel("F"),
+    )
+    ```
+  </Tab>
+  <Tab title="Fixed Rows">
+    ```go
+    // 2 equal-height rows; column count grows automatically
+    grid := container.NewGridWithRows(2,
+        widget.NewLabel("Top-left"),
+        widget.NewLabel("Top-right"),
+        widget.NewLabel("Bottom-left"),
+        widget.NewLabel("Bottom-right"),
+    )
+    ```
+  </Tab>
+  <Tab title="Adaptive Grid">
+    ```go
+    // In landscape: treats rowcols as columns
+    // In portrait (mobile): treats rowcols as rows
+    grid := container.NewAdaptiveGrid(2,
+        widget.NewCard("Item 1", "", nil),
+        widget.NewCard("Item 2", "", nil),
+        widget.NewCard("Item 3", "", nil),
+        widget.NewCard("Item 4", "", nil),
+    )
+    ```
+  </Tab>
+</Tabs>
+
+### Border Layout
+
+Attaches objects to the edges and fills the remaining center space. Any of the four edge slots can be `nil`.
+
+```go
+toolbar := widget.NewToolbar(/* actions */)
+statusBar := widget.NewLabel("Ready")
+sidebar := widget.NewList(/* data */)
+mainContent := widget.NewRichText(/* content */)
+
+root := container.NewBorder(
+    toolbar,     // top
+    statusBar,   // bottom
+    sidebar,     // left
+    nil,         // right — unused
+    mainContent, // center (variadic; first is content, rest stack on top)
+)
+```
+
+### Center
+
+Positions all children centered within the available space without resizing them.
+
+```go
+centered := container.NewCenter(
+    widget.NewLabel("I am centered"),
+)
+```
+
+### Stack (formerly Max)
+
+All children are resized to fill the entire container, layered on top of one another. Objects added last appear on top. Useful for overlaying a widget on a background image.
+
+```go
+bg := canvas.NewImageFromResource(resourceBackground)
+bg.FillMode = canvas.ImageFillStretch
+
+overlay := widget.NewLabel("Overlay text")
+
+stacked := container.NewStack(bg, overlay)
+```
+
+<Note>
+  `container.NewMax(...)` is deprecated as of Fyne 2.4 and now delegates to
+  `container.NewStack(...)`. Use `NewStack` in new code.
+</Note>
+
+### Padded
+
+Wraps its content with the standard theme padding on all four sides.
+
+```go
+padded := container.NewPadded(myWidget)
+```
+
+### Scroll Containers
+
+<Tabs>
+  <Tab title="Both Directions">
+    ```go
+    longList := container.NewVBox(/* many items */)
+    scrollable := container.NewScroll(longList)
+    ```
+  </Tab>
+  <Tab title="Horizontal Only">
+    ```go
+    wideContent := container.NewHBox(/* many items */)
+    hscroll := container.NewHScroll(wideContent)
+    ```
+  </Tab>
+  <Tab title="Vertical Only">
+    ```go
+    tallContent := container.NewVBox(/* many items */)
+    vscroll := container.NewVScroll(tallContent)
+    ```
+  </Tab>
+</Tabs>
+
+The returned `*container.Scroll` exposes `Offset`, `ScrollToTop()`, `ScrollToBottom()`, and a `Direction` field to lock scrolling to a single axis.
+
+### Split Panes
+
+`container.NewHSplit` and `container.NewVSplit` create a resizable divider between two child objects. `Offset` (0.0–1.0) controls the initial split position.
+
+```go
+// Side-by-side horizontal split
+split := container.NewHSplit(
+    container.NewVScroll(fileTree),
+    editorPanel,
+)
+split.Offset = 0.25 // give 25 % to the file tree
+
+// Top/bottom vertical split
+vsplit := container.NewVSplit(codeEditor, logOutput)
+vsplit.Offset = 0.7
+```
+
+### Tabs
+
+<Tabs>
+  <Tab title="AppTabs">
+    ```go
+    tabs := container.NewAppTabs(
+        container.NewTabItem("Home",     homeContent),
+        container.NewTabItemWithIcon("Files", theme.FolderIcon(), filesContent),
+        container.NewTabItem("Settings", settingsContent),
+    )
+    tabs.SetTabLocation(container.TabLocationTop) // Top, Bottom, Leading, Trailing
+    ```
+  </Tab>
+  <Tab title="DocTabs">
+    ```go
+    // DocTabs allows closing individual tabs — ideal for editor-style UIs
+    docs := container.NewDocTabs(
+        container.NewTabItem("untitled-1.go", editor1),
+        container.NewTabItem("main.go",       editor2),
+    )
+    docs.OnClosed = func(item *container.TabItem) {
+        fmt.Println("Closed:", item.Text)
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Common Layout Patterns
+
+### Sidebar Layout
+
+A classic two-pane layout with a fixed sidebar on the left and a scrollable main area on the right:
+
+```go
+sidebar := container.NewVBox(
+    widget.NewButton("Dashboard", func() {}),
+    widget.NewButton("Reports",   func() {}),
+    widget.NewButton("Settings",  func() {}),
+)
+
+mainArea := container.NewVScroll(
+    container.NewVBox(/* page content */),
+)
+
+root := container.NewBorder(nil, nil, container.NewPadded(sidebar), nil, mainArea)
+```
+
+### Form Layout
+
+A tidy label-plus-field grid using `widget.Form`:
+
+```go
+form := widget.NewForm(
+    widget.NewFormItem("Name",  widget.NewEntry()),
+    widget.NewFormItem("Email", widget.NewEntry()),
+    widget.NewFormItem("Role",  widget.NewSelect([]string{"Admin", "User"}, nil)),
+)
+```
+
+For a manual two-column grid, use `container.NewGridWithColumns`:
+
+```go
+labels := container.NewVBox(
+    widget.NewLabelWithStyle("Name:",  fyne.TextAlignTrailing, fyne.TextStyle{}),
+    widget.NewLabelWithStyle("Email:", fyne.TextAlignTrailing, fyne.TextStyle{}),
+)
+fields := container.NewVBox(
+    widget.NewEntry(),
+    widget.NewEntry(),
+)
+formGrid := container.NewBorder(nil, nil, labels, nil, fields)
+```
+
+### Toolbar with Centered Title
+
+```go
+toolbar := container.NewBorder(
+    nil, nil,
+    widget.NewToolbar(widget.NewToolbarAction(theme.NavigateBackIcon(), func() {})),
+    widget.NewToolbar(widget.NewToolbarAction(theme.MoreHorizontalIcon(), func() {})),
+    container.NewCenter(widget.NewLabel("Page Title")),
+)
+```
+
+## Dynamic Container Updates
+
+Add or remove children at runtime and call `Refresh()` to re-layout:
+
+```go
+c := container.NewVBox(widget.NewLabel("Item 1"))
+
+// Add an item
+c.Add(widget.NewLabel("Item 2"))
+
+// Remove an item
+c.Remove(someObject)
+
+// Replace all children
+c.Objects = []fyne.CanvasObject{widget.NewLabel("Replaced")}
+c.Refresh()
+```

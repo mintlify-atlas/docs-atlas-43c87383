@@ -1,0 +1,450 @@
+---
+title: "Collection Widgets: List, Table, and Tree"
+sidebarTitle: "Collection Widgets"
+description: "Deep dive into Fyne's virtualised collection widgets — List, Table, Tree, and GridWrap — with constructors, callbacks, and full working code examples."
+---
+
+Fyne provides four collection widgets designed for displaying large datasets efficiently: `List`, `Table`, `Tree`, and `GridWrap`. All four share the same virtualisation strategy — only the items visible in the current viewport are created and rendered. Rows that scroll out of view are recycled and reused for new rows that scroll in.
+
+<Note>
+Because items are reused, your `updateItem` / `UpdateCell` / `UpdateNode` callback **must** fully overwrite every field of the template object on every call. Never assume that a recycled widget retains the state you set for a previous row.
+</Note>
+
+---
+
+## List
+
+`widget.List` displays items in a scrollable vertical column. All items share the same height by default, but individual rows can be resized with `SetItemHeight`.
+
+**Constructors**
+
+```go
+// Static data source
+list := widget.NewList(
+    func() int { return len(data) },
+    func() fyne.CanvasObject { return widget.NewLabel("template") },
+    func(id widget.ListItemID, item fyne.CanvasObject) {
+        item.(*widget.Label).SetText(data[id])
+    },
+)
+
+// Data-binding variant
+list := widget.NewListWithData(
+    myDataList,
+    func() fyne.CanvasObject { return widget.NewLabel("") },
+    func(item binding.DataItem, obj fyne.CanvasObject) {
+        str, _ := item.(binding.String).Get()
+        obj.(*widget.Label).SetText(str)
+    },
+)
+```
+
+**Key struct fields**
+
+| Field | Type | Description |
+|---|---|---|
+| `Length` | `func() int` | Returns the total item count. |
+| `CreateItem` | `func() fyne.CanvasObject` | Creates a new template widget (cached). |
+| `UpdateItem` | `func(ListItemID, fyne.CanvasObject)` | Populates a widget for the given row ID. |
+| `OnSelected` | `func(ListItemID)` | Called when a row is tapped. |
+| `OnUnselected` | `func(ListItemID)` | Called when a row is deselected. |
+| `HideSeparators` | `bool` | Hide the lines between rows (since 2.5). |
+
+**Key methods**
+
+```go
+list.Select(3)          // programmatically select row 3
+list.Unselect(3)        // deselect row 3
+list.UnselectAll()
+list.ScrollTo(10)       // scroll so row 10 is visible
+list.ScrollToTop()
+list.ScrollToBottom()
+list.SetItemHeight(5, 80) // set row 5 to 80px tall
+list.Refresh()          // re-render when data changes
+```
+
+**Full example — list of strings**
+
+```go
+package main
+
+import (
+    "fyne.io/fyne/v2"
+    "fyne.io/fyne/v2/app"
+    "fyne.io/fyne/v2/widget"
+)
+
+func main() {
+    a := app.New()
+    w := a.NewWindow("List Demo")
+    w.Resize(fyne.NewSize(300, 400))
+
+    fruits := []string{"Apple", "Banana", "Cherry", "Date", "Elderberry"}
+
+    list := widget.NewList(
+        func() int { return len(fruits) },
+        func() fyne.CanvasObject {
+            return widget.NewLabel("template")
+        },
+        func(id widget.ListItemID, item fyne.CanvasObject) {
+            item.(*widget.Label).SetText(fruits[id])
+        },
+    )
+
+    list.OnSelected = func(id widget.ListItemID) {
+        println("selected:", fruits[id])
+    }
+
+    w.SetContent(list)
+    w.ShowAndRun()
+}
+```
+
+---
+
+## Table
+
+`widget.Table` renders data in a scrollable two-dimensional grid. Cell sizes are uniform by default but can be overridden per column or per row. Optional sticky headers stay pinned to the top and left edges as the content scrolls.
+
+**Constructors**
+
+```go
+// Basic table
+table := widget.NewTable(
+    func() (rows int, cols int) { return len(data), len(data[0]) },
+    func() fyne.CanvasObject { return widget.NewLabel("cell") },
+    func(id widget.TableCellID, cell fyne.CanvasObject) {
+        cell.(*widget.Label).SetText(data[id.Row][id.Col])
+    },
+)
+
+// With sticky row and column headers (since 2.4)
+table := widget.NewTableWithHeaders(
+    func() (int, int) { return rows, cols },
+    func() fyne.CanvasObject { return widget.NewLabel("") },
+    func(id widget.TableCellID, obj fyne.CanvasObject) {
+        obj.(*widget.Label).SetText(data[id.Row][id.Col])
+    },
+)
+```
+
+**Key struct fields**
+
+| Field | Type | Description |
+|---|---|---|
+| `Length` | `func() (int, int)` | Returns `(rowCount, colCount)`. |
+| `CreateCell` | `func() fyne.CanvasObject` | Creates a new cell template. |
+| `UpdateCell` | `func(TableCellID, fyne.CanvasObject)` | Populates a cell for the given `(Row, Col)`. |
+| `OnSelected` | `func(TableCellID)` | Called when a cell is tapped. |
+| `OnUnselected` | `func(TableCellID)` | Called when a cell is deselected. |
+| `ShowHeaderRow` | `bool` | Display a sticky header row (since 2.4). |
+| `ShowHeaderColumn` | `bool` | Display a sticky header column (since 2.4). |
+| `CreateHeader` / `UpdateHeader` | `func()` | Customise header cell content (since 2.4). |
+| `StickyRowCount` | `int` | Number of data rows to pin (since 2.4). |
+| `StickyColumnCount` | `int` | Number of data columns to pin (since 2.4). |
+| `HideSeparators` | `bool` | Hide cell divider lines (since 2.5). |
+
+**Key methods**
+
+```go
+table.SetColumnWidth(0, 150)   // column 0 → 150 pixels wide
+table.SetRowHeight(1, 40)      // row 1 → 40 pixels tall
+table.Select(widget.TableCellID{Row: 2, Col: 1})
+table.ScrollTo(widget.TableCellID{Row: 10, Col: 0})
+table.ScrollToTop()
+table.ScrollToBottom()
+table.Refresh()
+```
+
+**Full example — 2D data table**
+
+```go
+package main
+
+import (
+    "fmt"
+
+    "fyne.io/fyne/v2"
+    "fyne.io/fyne/v2/app"
+    "fyne.io/fyne/v2/widget"
+)
+
+func main() {
+    a := app.New()
+    w := a.NewWindow("Table Demo")
+    w.Resize(fyne.NewSize(500, 350))
+
+    data := [][]string{
+        {"Alice", "Engineering", "5 years"},
+        {"Bob", "Marketing", "2 years"},
+        {"Carol", "Design", "8 years"},
+    }
+
+    table := widget.NewTableWithHeaders(
+        func() (int, int) { return len(data), 3 },
+        func() fyne.CanvasObject { return widget.NewLabel("") },
+        func(id widget.TableCellID, obj fyne.CanvasObject) {
+            obj.(*widget.Label).SetText(data[id.Row][id.Col])
+        },
+    )
+    table.UpdateHeader = func(id widget.TableCellID, obj fyne.CanvasObject) {
+        headers := []string{"Name", "Department", "Tenure"}
+        if id.Row == -1 && id.Col >= 0 {
+            obj.(*widget.Label).SetText(headers[id.Col])
+        }
+    }
+    table.SetColumnWidth(0, 120)
+    table.SetColumnWidth(1, 150)
+    table.SetColumnWidth(2, 100)
+
+    table.OnSelected = func(id widget.TableCellID) {
+        fmt.Printf("selected (%d, %d): %s\n", id.Row, id.Col, data[id.Row][id.Col])
+    }
+
+    w.SetContent(table)
+    w.ShowAndRun()
+}
+```
+
+---
+
+## Tree
+
+`widget.Tree` displays hierarchical data. Each node is identified by a unique `TreeNodeID` (a `string`). Nodes can be branches (expandable) or leaves.
+
+**Constructors**
+
+```go
+// Full callback-based constructor
+tree := widget.NewTree(
+    // childUIDs: return ordered children of the given node
+    func(uid widget.TreeNodeID) []widget.TreeNodeID {
+        return children[uid]
+    },
+    // isBranch: true if the node has children
+    func(uid widget.TreeNodeID) bool {
+        _, ok := children[uid]
+        return ok
+    },
+    // create: template widget; branch=true for expandable nodes
+    func(branch bool) fyne.CanvasObject {
+        return widget.NewLabel("node")
+    },
+    // update: set the widget to display the data at uid
+    func(uid widget.TreeNodeID, branch bool, node fyne.CanvasObject) {
+        node.(*widget.Label).SetText(uid)
+    },
+)
+
+// Convenience helper for string maps
+tree := widget.NewTreeWithStrings(map[string][]string{
+    "":        {"fruits", "veggies"},
+    "fruits":  {"apple", "banana"},
+    "veggies": {"carrot", "potato"},
+})
+```
+
+**Key struct fields**
+
+| Field | Type | Description |
+|---|---|---|
+| `Root` | `TreeNodeID` | The root node UID (default `""`). |
+| `ChildUIDs` | `func(TreeNodeID) []TreeNodeID` | Returns ordered child IDs for a node. |
+| `IsBranch` | `func(TreeNodeID) bool` | Returns `true` if a node is expandable. |
+| `CreateNode` | `func(branch bool) fyne.CanvasObject` | Creates a new node template widget. |
+| `UpdateNode` | `func(TreeNodeID, bool, fyne.CanvasObject)` | Populates a node widget. |
+| `OnSelected` | `func(TreeNodeID)` | Called when a node is selected. |
+| `OnUnselected` | `func(TreeNodeID)` | Called when a node is deselected. |
+| `OnBranchOpened` | `func(TreeNodeID)` | Called when a branch is expanded. |
+| `OnBranchClosed` | `func(TreeNodeID)` | Called when a branch is collapsed. |
+| `HideSeparators` | `bool` | Hide separator lines between nodes (since 2.5). |
+
+**Key methods**
+
+```go
+tree.OpenBranch("fruits")
+tree.CloseBranch("fruits")
+tree.OpenAllBranches()
+tree.CloseAllBranches()
+tree.IsBranchOpen("fruits") // returns bool
+tree.ScrollTo("banana")
+tree.Refresh()
+```
+
+**Full example — file tree**
+
+```go
+package main
+
+import (
+    "fyne.io/fyne/v2"
+    "fyne.io/fyne/v2/app"
+    "fyne.io/fyne/v2/theme"
+    "fyne.io/fyne/v2/widget"
+)
+
+var fileTree = map[string][]string{
+    "":          {"/home"},
+    "/home":     {"/home/user"},
+    "/home/user": {"/home/user/docs", "/home/user/pics"},
+    "/home/user/docs": {"report.pdf", "notes.txt"},
+    "/home/user/pics": {"photo.jpg"},
+}
+
+func main() {
+    a := app.New()
+    w := a.NewWindow("File Tree")
+    w.Resize(fyne.NewSize(320, 480))
+
+    tree := widget.NewTree(
+        func(uid widget.TreeNodeID) []widget.TreeNodeID {
+            return fileTree[uid]
+        },
+        func(uid widget.TreeNodeID) bool {
+            _, ok := fileTree[uid]
+            return ok
+        },
+        func(branch bool) fyne.CanvasObject {
+            if branch {
+                return widget.NewButtonWithIcon("", theme.FolderIcon(), nil)
+            }
+            return widget.NewButtonWithIcon("", theme.DocumentIcon(), nil)
+        },
+        func(uid widget.TreeNodeID, branch bool, obj fyne.CanvasObject) {
+            // extract just the filename
+            name := uid
+            for i := len(uid) - 1; i >= 0; i-- {
+                if uid[i] == '/' {
+                    name = uid[i+1:]
+                    break
+                }
+            }
+            obj.(*widget.Button).SetText(name)
+        },
+    )
+
+    tree.OnSelected = func(uid widget.TreeNodeID) {
+        println("selected:", uid)
+    }
+
+    w.SetContent(tree)
+    w.ShowAndRun()
+}
+```
+
+---
+
+## GridWrap
+
+`widget.GridWrap` uses the same virtualised-template API as `List`, but arranges items in a wrapping grid (similar to `container.NewGridWrap`). It is ideal for thumbnail galleries and icon grids.
+
+**Constructors**
+
+```go
+// Static data source
+grid := widget.NewGridWrap(
+    func() int { return len(items) },
+    func() fyne.CanvasObject {
+        return widget.NewLabel("item")
+    },
+    func(id widget.GridWrapItemID, obj fyne.CanvasObject) {
+        obj.(*widget.Label).SetText(items[id])
+    },
+)
+
+// Data-binding variant
+grid := widget.NewGridWrapWithData(
+    myDataList,
+    func() fyne.CanvasObject { return widget.NewLabel("") },
+    func(item binding.DataItem, obj fyne.CanvasObject) {
+        s, _ := item.(binding.String).Get()
+        obj.(*widget.Label).SetText(s)
+    },
+)
+```
+
+**Key struct fields**
+
+| Field | Type | Description |
+|---|---|---|
+| `Length` | `func() int` | Total item count. |
+| `CreateItem` | `func() fyne.CanvasObject` | Template factory. |
+| `UpdateItem` | `func(GridWrapItemID, fyne.CanvasObject)` | Populates a cell. |
+| `OnSelected` | `func(GridWrapItemID)` | Called on selection. |
+| `OnUnselected` | `func(GridWrapItemID)` | Called on deselection. |
+
+**Key methods**
+
+```go
+grid.Select(4)
+grid.Unselect(4)
+grid.UnselectAll()
+grid.ScrollTo(10)
+grid.ScrollToTop()
+grid.ScrollToBottom()
+grid.Refresh()
+```
+
+**Full example — colour swatch gallery**
+
+```go
+package main
+
+import (
+    "fmt"
+    "image/color"
+
+    "fyne.io/fyne/v2"
+    "fyne.io/fyne/v2/app"
+    "fyne.io/fyne/v2/canvas"
+    "fyne.io/fyne/v2/widget"
+)
+
+func main() {
+    a := app.New()
+    w := a.NewWindow("GridWrap Demo")
+    w.Resize(fyne.NewSize(400, 300))
+
+    colours := []color.Color{
+        color.RGBA{R: 220, A: 255},
+        color.RGBA{G: 180, A: 255},
+        color.RGBA{B: 220, A: 255},
+        color.RGBA{R: 220, G: 180, A: 255},
+        color.RGBA{R: 100, G: 200, B: 100, A: 255},
+        color.RGBA{R: 200, G: 100, B: 200, A: 255},
+    }
+
+    grid := widget.NewGridWrap(
+        func() int { return len(colours) },
+        func() fyne.CanvasObject {
+            rect := canvas.NewRectangle(color.White)
+            rect.SetMinSize(fyne.NewSquareSize(64))
+            return rect
+        },
+        func(id widget.GridWrapItemID, obj fyne.CanvasObject) {
+            obj.(*canvas.Rectangle).FillColor = colours[id]
+            obj.(*canvas.Rectangle).Refresh()
+        },
+    )
+
+    grid.OnSelected = func(id widget.GridWrapItemID) {
+        fmt.Printf("selected swatch %d\n", id)
+    }
+
+    w.SetContent(grid)
+    w.ShowAndRun()
+}
+```
+
+---
+
+## Performance notes
+
+<Warning>
+All four collection widgets (List, Table, Tree, GridWrap) virtualise their content. Keep these rules in mind to avoid subtle bugs:
+
+1. **Never store state in the template widget itself.** Templates are reused for different data IDs. All state must live in your data slice or binding.
+2. **Your `UpdateItem` / `UpdateCell` / `UpdateNode` callback must be idempotent.** It will be called repeatedly for the same ID whenever the list scrolls or refreshes.
+3. **Call `Refresh()` on the collection widget after modifying your underlying data.** The widget does not watch your slice — it only knows about changes you signal.
+4. **Use `SetItemHeight` (List / GridWrap) or `SetRowHeight` / `SetColumnWidth` (Table) sparingly**, as variable sizes require extra layout passes.
+</Warning>

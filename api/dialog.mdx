@@ -1,0 +1,305 @@
+---
+title: "Dialog Package — Fyne API Reference"
+sidebarTitle: "dialog"
+description: "API reference for the Fyne dialog package: information, error, confirm, form, file pickers, color picker, and progress dialogs with full signatures."
+---
+
+The `dialog` package provides ready-made modal dialog windows that overlay a parent `fyne.Window`. All dialogs are non-blocking by default — they accept a callback that fires when the user dismisses or confirms. Use the `Show*` convenience functions for one-liner dialogs, or the `New*` constructors when you need to configure a dialog before showing it.
+
+```go
+import "fyne.io/fyne/v2/dialog"
+```
+
+<Note>
+Every dialog requires a parent `fyne.Window`. The dialog is centered over the parent and blocks interaction with its content while open.
+</Note>
+
+---
+
+## `Dialog` Interface
+
+All dialog types implement the `Dialog` interface:
+
+```go
+type Dialog interface {
+    Show()
+    Hide()
+    SetDismissText(label string)
+    SetOnClosed(closed func())
+    Refresh()
+    Resize(size fyne.Size)
+    MinSize() fyne.Size  // Since: 2.1
+    Dismiss()            // Since: 2.6
+}
+```
+
+| Method | Description |
+|--------|-------------|
+| `Show()` | Makes the dialog visible over its parent window. |
+| `Hide()` | Hides the dialog without calling the dismiss callback. |
+| `SetDismissText(label string)` | Replaces the default "OK" or "Cancel" button text. No-op for dialogs without a dismiss button. |
+| `SetOnClosed(func())` | Registers a callback invoked when the dialog closes for any reason. |
+| `Refresh()` | Redraws the dialog with current state. |
+| `Resize(size fyne.Size)` | Resizes the dialog. Respects `MinSize()`. |
+| `MinSize() fyne.Size` | Returns the smallest allowable size. |
+| `Dismiss()` | Closes the dialog without any affirmative action. *(Since 2.6)* |
+
+---
+
+## Informational Dialogs
+
+### `ShowInformation`
+
+```go
+func ShowInformation(title, message string, parent fyne.Window)
+```
+
+Displays a modal dialog with a title, message, and an "OK" dismiss button.
+
+```go
+dialog.ShowInformation("Done", "File saved successfully.", myWindow)
+```
+
+### `ShowError`
+
+```go
+func ShowError(err error, parent fyne.Window)
+```
+
+Displays the error message with a red warning icon.
+
+```go
+if err != nil {
+    dialog.ShowError(err, myWindow)
+}
+```
+
+---
+
+## Confirmation Dialog
+
+### `ShowConfirm`
+
+```go
+func ShowConfirm(title, message string, callback func(bool), parent fyne.Window)
+```
+
+Shows a two-button dialog ("No" / "Yes"). `callback` receives `true` when the user confirms.
+
+<ParamField path="callback" type="func(bool)" required>
+  Called with `true` on confirm, `false` on cancel or dismiss.
+</ParamField>
+
+```go
+dialog.ShowConfirm("Delete file?", "This cannot be undone.", func(ok bool) {
+    if ok {
+        deleteFile()
+    }
+}, myWindow)
+```
+
+---
+
+## Custom Dialogs
+
+### `NewCustom`
+
+```go
+func NewCustom(title, dismiss string, content fyne.CanvasObject, parent fyne.Window) Dialog
+```
+
+A dialog with a title bar, custom content, and a single labelled dismiss button.
+
+### `NewCustomWithoutButtons`
+
+```go
+func NewCustomWithoutButtons(title string, content fyne.CanvasObject, parent fyne.Window) Dialog
+```
+
+Like `NewCustom` but with no buttons. You are responsible for calling `Hide()` or `Dismiss()`.
+
+### `ShowCustom`
+
+```go
+func ShowCustom(title, dismiss string, content fyne.CanvasObject, parent fyne.Window)
+```
+
+Convenience wrapper that calls `NewCustom(...).Show()`.
+
+```go
+form := container.NewVBox(
+    widget.NewLabel("Enter your name:"),
+    nameEntry,
+)
+d := dialog.NewCustom("Registration", "Submit", form, myWindow)
+d.Show()
+```
+
+---
+
+## Form Dialog
+
+### `ShowForm`
+
+```go
+func ShowForm(
+    title, confirm, dismiss string,
+    items []*widget.FormItem,
+    callback func(bool),
+    parent fyne.Window,
+)
+```
+
+Displays a dialog containing a `widget.Form`. `callback` receives `true` when the confirm button is tapped and all validators pass.
+
+<ParamField path="items" type="[]*widget.FormItem" required>
+  Each `FormItem` pairs a label string with a widget. Set `widget.FormItem.HintText` for inline validation hints.
+</ParamField>
+
+```go
+nameEntry := widget.NewEntry()
+emailEntry := widget.NewEntry()
+
+dialog.ShowForm("Sign Up", "Create Account", "Cancel",
+    []*widget.FormItem{
+        {Text: "Name",  Widget: nameEntry},
+        {Text: "Email", Widget: emailEntry},
+    },
+    func(ok bool) {
+        if ok {
+            register(nameEntry.Text, emailEntry.Text)
+        }
+    },
+    myWindow,
+)
+```
+
+---
+
+## File Dialogs
+
+### `ShowFileOpen`
+
+```go
+func ShowFileOpen(callback func(reader fyne.URIReadCloser, err error), parent fyne.Window)
+```
+
+Opens a native file chooser for reading. `callback` receives a `fyne.URIReadCloser` that **must be closed** by the caller. Both arguments are `nil` on cancel.
+
+### `ShowFileSave`
+
+```go
+func ShowFileSave(callback func(writer fyne.URIWriteCloser, err error), parent fyne.Window)
+```
+
+Opens a native file chooser for writing. `callback` receives a `fyne.URIWriteCloser`. The user is prompted before overwriting an existing file.
+
+### `ShowFolderOpen`
+
+```go
+func ShowFolderOpen(callback func(fyne.ListableURI, error), parent fyne.Window)
+```
+
+Opens a directory picker. `callback` receives a `fyne.ListableURI`.
+
+### `NewFileOpen` / `NewFileSave`
+
+```go
+func NewFileOpen(callback func(reader fyne.URIReadCloser, err error), parent fyne.Window) *FileDialog
+func NewFileSave(callback func(writer fyne.URIWriteCloser, err error), parent fyne.Window) *FileDialog
+```
+
+Return a `*FileDialog` for further configuration before calling `Show()`.
+
+### `*FileDialog` Configuration Methods
+
+| Method | Description |
+|--------|-------------|
+| `SetLocation(u fyne.ListableURI)` | Sets the initial directory. *(Since 1.4)* |
+| `SetFilter(filter storage.FileFilter)` | Restricts visible files. |
+| `SetFileName(name string)` | Pre-fills the filename in save mode. |
+| `SetConfirmText(label string)` | Customises the confirm button. *(Since 2.2)* |
+| `SetDismissText(label string)` | Customises the cancel button. |
+| `SetTitleText(label string)` | Customises the dialog title. *(Since 2.6)* |
+| `SetView(v ViewLayout)` | Sets initial view to `ListVIew` or `GridView`. *(Since 2.5)* |
+
+```go
+fd := dialog.NewFileOpen(func(r fyne.URIReadCloser, err error) {
+    if err != nil || r == nil {
+        return
+    }
+    defer r.Close()
+    data, _ := io.ReadAll(r)
+    textArea.SetText(string(data))
+}, myWindow)
+fd.SetFilter(storage.NewExtensionFileFilter([]string{".txt", ".md"}))
+fd.Show()
+```
+
+### `ViewLayout` Constants *(Since 2.5)*
+
+```go
+const (
+    ListView ViewLayout = 1
+    GridView ViewLayout = 2
+)
+```
+
+---
+
+## Color Picker Dialog
+
+### `ShowColorPicker`
+
+```go
+func ShowColorPicker(title, message string, callback func(color.Color), parent fyne.Window)
+```
+
+Displays a color picker palette. `callback` is invoked with the chosen `color.Color`.
+
+### `NewColorPicker`
+
+```go
+func NewColorPicker(title, message string, callback func(c color.Color), parent fyne.Window) *ColorPickerDialog
+```
+
+Returns a `*ColorPickerDialog` for further customization. Set `.Advanced = true` before calling `Show()` to include the HSL/RGB advanced picker.
+
+```go
+cp := dialog.NewColorPicker("Pick Color", "Choose a highlight color",
+    func(c color.Color) {
+        rect.FillColor = c
+        canvas.Refresh(rect)
+    }, myWindow)
+cp.Advanced = true
+cp.Show()
+```
+
+---
+
+## Progress Dialogs
+
+### `NewProgress`
+
+```go
+func NewProgress(title, message string, parent fyne.Window) *ProgressDialog
+```
+
+A determinate progress dialog. Set `progress.SetValue(0.0...1.0)` to update the bar. Call `Hide()` when complete.
+
+### `NewProgressInfinite`
+
+```go
+func NewProgressInfinite(title, message string, parent fyne.Window) *InfiniteProgressDialog
+```
+
+An indeterminate progress dialog with a spinning bar. Starts animating automatically on `Show()`. Call `Hide()` when the background work completes.
+
+```go
+prog := dialog.NewProgressInfinite("Working", "Please wait…", myWindow)
+prog.Show()
+go func() {
+    doHeavyWork()
+    prog.Hide()
+}()
+```

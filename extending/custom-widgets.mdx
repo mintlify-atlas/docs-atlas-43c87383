@@ -1,0 +1,259 @@
+---
+title: "Build Custom Widgets for Your Fyne App"
+sidebarTitle: "Custom Widgets"
+description: "Learn how to implement the fyne.Widget and fyne.WidgetRenderer interfaces to build fully custom, reusable UI components in Fyne."
+---
+
+Every Fyne application is built from canvas objects, but sometimes the built-in widgets don't cover a specific visual or interaction pattern you need. By implementing the `fyne.Widget` and `fyne.WidgetRenderer` interfaces you can build reusable components that participate fully in Fyne's layout, theming, and refresh lifecycle — just like any built-in widget.
+
+## Interfaces to implement
+
+Custom widgets require two interfaces defined in `fyne.io/fyne/v2`.
+
+### `fyne.Widget`
+
+`fyne.Widget` extends `fyne.CanvasObject` and adds a single method:
+
+```go
+type Widget interface {
+    CanvasObject
+
+    // CreateRenderer returns a new WidgetRenderer for this widget.
+    // Called internally by Fyne — do not call it directly.
+    CreateRenderer() WidgetRenderer
+}
+```
+
+The full `fyne.CanvasObject` surface (geometry, visibility, `Refresh`) is inherited and provided for free by embedding `widget.BaseWidget`.
+
+### `fyne.WidgetRenderer`
+
+The renderer is responsible for the actual drawing of a widget. Fyne creates exactly **one renderer per widget instance** in memory.
+
+```go
+type WidgetRenderer interface {
+    // Destroy is called when the renderer is being cleaned up.
+    Destroy()
+    // Layout is called when the widget is resized. Never call Refresh here.
+    Layout(Size)
+    // MinSize returns the minimum size the widget needs to be drawn correctly.
+    MinSize() Size
+    // Objects returns all CanvasObjects the renderer draws.
+    // The slice may be cached and returned on subsequent calls.
+    Objects() []CanvasObject
+    // Refresh is called when the widget state has changed and a redraw is needed.
+    Refresh()
+}
+```
+
+## `widget.BaseWidget`
+
+`widget.BaseWidget` is a concrete helper struct in `fyne.io/fyne/v2/widget`. Embed it in your widget struct to get a complete `fyne.CanvasObject` implementation for free — size, position, visibility, and `Refresh` are all handled.
+
+Always call `ExtendBaseWidget(w)` in your constructor so that `BaseWidget` knows which concrete type it is backing:
+
+```go
+func (w *BaseWidget) ExtendBaseWidget(wid fyne.Widget)
+```
+
+Without this call, methods such as `Resize`, `Move`, and `Refresh` will silently no-op because the underlying `impl` field is `nil`.
+
+## Step-by-step: building a custom widget
+
+<Steps>
+  <Step title="Define your widget struct">
+    Embed `widget.BaseWidget` and add any public fields your widget exposes:
+
+    ```go
+    import (
+        "image/color"
+
+        "fyne.io/fyne/v2/widget"
+    )
+
+    type Badge struct {
+        widget.BaseWidget
+        Text  string
+        Color color.Color
+    }
+    ```
+  </Step>
+
+  <Step title="Write the constructor">
+    Allocate the struct, then call `ExtendBaseWidget` so `BaseWidget` knows which concrete widget it is managing:
+
+    ```go
+    func NewBadge(text string, c color.Color) *Badge {
+        b := &Badge{Text: text, Color: c}
+        b.ExtendBaseWidget(b)
+        return b
+    }
+    ```
+  </Step>
+
+  <Step title="Implement CreateRenderer">
+    `CreateRenderer` is the bridge between your widget and its visual representation. Build all the canvas primitives you need here and return a renderer that owns them:
+
+    ```go
+    import (
+        "fyne.io/fyne/v2"
+        "fyne.io/fyne/v2/canvas"
+        "fyne.io/fyne/v2/container"
+        "fyne.io/fyne/v2/widget"
+    )
+
+    func (b *Badge) CreateRenderer() fyne.WidgetRenderer {
+        label := canvas.NewText(b.Text, color.White)
+        bg    := canvas.NewRectangle(b.Color)
+        bg.CornerRadius = 4
+
+        return widget.NewSimpleRenderer(
+            container.NewStack(bg, container.NewCenter(label)),
+        )
+    }
+    ```
+
+    `widget.NewSimpleRenderer` (added in Fyne 2.1) wraps a single `fyne.CanvasObject` as a complete renderer, delegating `Layout`, `MinSize`, `Objects`, `Refresh`, and `Destroy` automatically. Use it whenever your widget maps cleanly to one root object or container.
+  </Step>
+
+  <Step title="Define a custom renderer struct (when needed)">
+    For finer control — such as independently positioning multiple canvas objects — implement the renderer interface yourself:
+
+    ```go
+    type badgeRenderer struct {
+        bg    *canvas.Rectangle
+        label *canvas.Text
+        badge *Badge
+    }
+
+    func (r *badgeRenderer) Layout(size fyne.Size) {
+        r.bg.Resize(size)
+        r.label.Move(fyne.NewPos(size.Width/2-r.label.MinSize().Width/2,
+            size.Height/2-r.label.MinSize().Height/2))
+        r.label.Resize(r.label.MinSize())
+    }
+
+    func (r *badgeRenderer) MinSize() fyne.Size {
+        pad := float32(8)
+        s := r.label.MinSize()
+        return fyne.NewSize(s.Width+pad*2, s.Height+pad)
+    }
+
+    func (r *badgeRenderer) Objects() []fyne.CanvasObject {
+        return []fyne.CanvasObject{r.bg, r.label}
+    }
+
+    func (r *badgeRenderer) Refresh() {
+        r.bg.FillColor = r.badge.Color
+        r.label.Text = r.badge.Text
+        r.bg.Refresh()
+        r.label.Refresh()
+    }
+
+    func (r *badgeRenderer) Destroy() {}
+    ```
+  </Step>
+
+  <Step title="Trigger redraws after state changes">
+    After any mutation to your widget's exported fields, call `Refresh()` so Fyne schedules a redraw by invoking the renderer's `Refresh` method:
+
+    ```go
+    func (b *Badge) SetText(text string) {
+        b.Text = text
+        b.Refresh()
+    }
+
+    func (b *Badge) SetColor(c color.Color) {
+        b.Color = c
+        b.Refresh()
+    }
+    ```
+  </Step>
+</Steps>
+
+## Complete working example
+
+Here is the full `Badge` widget using `widget.NewSimpleRenderer` for brevity:
+
+```go
+package main
+
+import (
+    "image/color"
+
+    "fyne.io/fyne/v2"
+    "fyne.io/fyne/v2/app"
+    "fyne.io/fyne/v2/canvas"
+    "fyne.io/fyne/v2/container"
+    "fyne.io/fyne/v2/widget"
+)
+
+// Badge is a coloured pill widget that displays a short text label.
+type Badge struct {
+    widget.BaseWidget
+    Text  string
+    Color color.Color
+}
+
+// NewBadge creates and initialises a Badge widget.
+func NewBadge(text string, c color.Color) *Badge {
+    b := &Badge{Text: text, Color: c}
+    b.ExtendBaseWidget(b)
+    return b
+}
+
+// CreateRenderer builds the visual representation of the Badge.
+func (b *Badge) CreateRenderer() fyne.WidgetRenderer {
+    label := canvas.NewText(b.Text, color.White)
+    bg := canvas.NewRectangle(b.Color)
+    bg.CornerRadius = 4
+    return widget.NewSimpleRenderer(
+        container.NewStack(bg, container.NewCenter(label)),
+    )
+}
+
+func main() {
+    a := app.New()
+    w := a.NewWindow("Custom Widget Demo")
+
+    badge := NewBadge("v2.5.0", color.NRGBA{R: 0x22, G: 0x99, B: 0xff, A: 0xff})
+    w.SetContent(container.NewCenter(badge))
+    w.ShowAndRun()
+}
+```
+
+## Extending existing widgets
+
+You can sub-class any Fyne widget that exposes an extend pattern by embedding it rather than `widget.BaseWidget` and calling `ExtendBaseWidget` with your outer type:
+
+```go
+type TappableLabel struct {
+    widget.Label
+    OnTapped func()
+}
+
+func NewTappableLabel(text string, tapped func()) *TappableLabel {
+    tl := &TappableLabel{OnTapped: tapped}
+    tl.ExtendBaseWidget(tl)
+    tl.SetText(text)
+    return tl
+}
+
+func (tl *TappableLabel) Tapped(_ *fyne.PointEvent) {
+    if tl.OnTapped != nil {
+        tl.OnTapped()
+    }
+}
+```
+
+<Note>
+  `ExtendBaseWidget` is idempotent — calling it more than once on the same widget instance has no effect. Only the first call registers the concrete type.
+</Note>
+
+<Tip>
+  Keep renderer creation lightweight. `CreateRenderer` may be called on a background goroutine during the first layout pass. Avoid making network requests or loading files inside it — do that in your constructor or lazily on demand.
+</Tip>
+
+<Warning>
+  Never call `Refresh` inside `Layout`. Fyne calls `Layout` during a refresh pass, so doing so creates an infinite cycle and will lock up your application.
+</Warning>

@@ -1,0 +1,384 @@
+---
+title: "Input Widgets: Buttons, Forms, and Controls"
+sidebarTitle: "Input Widgets"
+description: "Complete guide to Fyne's input widgets — Button, Entry, Select, Check, RadioGroup, Slider, Form, and DateEntry — with constructors and code examples."
+---
+
+Fyne's input widgets cover the full spectrum of user interactions: tapping buttons, typing text, choosing options from a list, toggling checkboxes, dragging sliders, and submitting forms. All input widgets implement `fyne.Disableable`, so you can call `Disable()` and `Enable()` on any of them without extra scaffolding.
+
+---
+
+## Button
+
+`widget.Button` is a tappable widget with optional text, icon, and a configurable visual importance level.
+
+**Constructors**
+
+```go
+// Label only
+btn := widget.NewButton("Click me", func() { fmt.Println("tapped") })
+
+// Label + icon
+btn := widget.NewButtonWithIcon("Save", theme.DocumentSaveIcon(), func() {
+    fmt.Println("saved")
+})
+```
+
+**Key fields**
+
+| Field | Type | Description |
+|---|---|---|
+| `Text` | `string` | Button label (may be empty for icon-only buttons). |
+| `Icon` | `fyne.Resource` | Optional icon displayed alongside the text. |
+| `Importance` | `widget.Importance` | Controls visual prominence: `MediumImportance` (default), `HighImportance`, `LowImportance`, `DangerImportance`, `WarningImportance`, `SuccessImportance`. |
+| `Alignment` | `widget.ButtonAlign` | `ButtonAlignCenter`, `ButtonAlignLeading`, `ButtonAlignTrailing`. |
+| `OnTapped` | `func()` | Called when the button is tapped. |
+
+**Key methods**
+
+```go
+btn.SetText("New label")
+btn.SetIcon(theme.DeleteIcon())
+btn.Disable()   // grays out the button
+btn.Enable()
+```
+
+**Example — danger confirmation button**
+
+```go
+deleteBtn := widget.NewButtonWithIcon("Delete", theme.DeleteIcon(), func() {
+    fmt.Println("item deleted")
+})
+deleteBtn.Importance = widget.DangerImportance
+```
+
+---
+
+## Entry
+
+`widget.Entry` handles single-line text, multi-line text, and password input. It supports data binding, validators, and an optional action item displayed on the right edge.
+
+**Constructors**
+
+```go
+// Single-line
+e := widget.NewEntry()
+
+// Multi-line (3 visible rows by default)
+ml := widget.NewMultiLineEntry()
+
+// Password (input hidden by a reveal toggle)
+pw := widget.NewPasswordEntry()
+
+// Bound to a binding.String
+bound := widget.NewEntryWithData(myStringBinding)
+```
+
+**Key fields**
+
+| Field | Type | Description |
+|---|---|---|
+| `Text` | `string` | Current text content. |
+| `PlaceHolder` | `string` | Hint text shown when the entry is empty. |
+| `OnChanged` | `func(string)` | Called on every keystroke. |
+| `OnSubmitted` | `func(string)` | Called when Enter is pressed (Shift+Enter for multiline). |
+| `Validator` | `fyne.StringValidator` | Validation function; non-nil error shows a red indicator. |
+| `MultiLine` | `bool` | Enables multi-line mode. |
+| `Password` | `bool` | Hides characters and adds a reveal button. |
+| `Wrapping` | `fyne.TextWrap` | Text wrapping behaviour (`fyne.TextWrapWord`, etc.). |
+| `Icon` | `fyne.Resource` | Decorative icon shown on the left edge (since 2.7). |
+
+**Key methods**
+
+```go
+e.SetText("hello")
+e.SetPlaceHolder("Enter name…")
+e.Bind(myBinding)
+e.Unbind()
+```
+
+**Example — validated email entry**
+
+```go
+emailEntry := widget.NewEntry()
+emailEntry.PlaceHolder = "user@example.com"
+emailEntry.Validator = validation.NewRegexp(
+    `^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`,
+    "must be a valid email address",
+)
+```
+
+<Note>
+`widget.NewPasswordEntry()` is a convenience wrapper that creates a regular `Entry` with `Password: true` and adds a built-in eye icon to reveal/hide the text.
+</Note>
+
+---
+
+## SelectEntry
+
+`widget.SelectEntry` is a combo-box: users can type freely *or* pick from a fixed list of suggestions presented in a drop-down.
+
+**Constructor**
+
+```go
+se := widget.NewSelectEntry([]string{"Apple", "Banana", "Cherry"})
+se.PlaceHolder = "Choose a fruit"
+```
+
+**Key method**
+
+```go
+se.SetOptions([]string{"Dog", "Cat", "Bird"}) // update the suggestion list
+```
+
+Because `SelectEntry` embeds `Entry`, all `Entry` fields and methods (`Text`, `OnChanged`, `Validator`, `Bind`, …) are available directly.
+
+---
+
+## Select
+
+`widget.Select` renders a drop-down that forces the user to choose one of the provided options.
+
+**Constructors**
+
+```go
+sel := widget.NewSelect([]string{"Red", "Green", "Blue"}, func(value string) {
+    fmt.Println("selected:", value)
+})
+
+// Data-bound variant (since 2.6)
+sel := widget.NewSelectWithData([]string{"Small", "Medium", "Large"}, myStringBinding)
+```
+
+**Key fields**
+
+| Field | Type | Description |
+|---|---|---|
+| `Options` | `[]string` | The list of choices. |
+| `Selected` | `string` | The currently selected value. |
+| `PlaceHolder` | `string` | Displayed when nothing is selected. |
+| `OnChanged` | `func(string)` | Called when the selection changes. |
+
+**Key methods**
+
+```go
+sel.SetSelected("Green")
+sel.ClearSelected()
+sel.Bind(myStringBinding)
+```
+
+---
+
+## Check
+
+`widget.Check` is a labelled boolean checkbox.
+
+**Constructors**
+
+```go
+chk := widget.NewCheck("Accept terms", func(checked bool) {
+    fmt.Println("checked:", checked)
+})
+
+// Data-bound
+chk := widget.NewCheckWithData("Remember me", myBoolBinding)
+```
+
+**Key fields**
+
+| Field | Type | Description |
+|---|---|---|
+| `Text` | `string` | Label shown next to the checkbox. |
+| `Checked` | `bool` | Current state. |
+| `Partial` | `bool` | Indeterminate state (dash icon), since 2.6. |
+| `OnChanged` | `func(bool)` | Called when the state toggles. |
+
+```go
+chk.SetChecked(true)
+```
+
+---
+
+## CheckGroup
+
+`widget.CheckGroup` presents a list of independent boolean options where any number can be selected simultaneously.
+
+**Constructor**
+
+```go
+cg := widget.NewCheckGroup(
+    []string{"Bold", "Italic", "Underline"},
+    func(selected []string) {
+        fmt.Println("selected styles:", selected)
+    },
+)
+cg.Horizontal = true // lay options out in a row
+```
+
+**Key fields**
+
+| Field | Type | Description |
+|---|---|---|
+| `Options` | `[]string` | All available options. |
+| `Selected` | `[]string` | Currently checked options. |
+| `Horizontal` | `bool` | Lays options out horizontally when `true`. |
+| `Required` | `bool` | Marks the group as required for form validation. |
+| `OnChanged` | `func([]string)` | Called whenever any option changes. |
+
+```go
+cg.SetSelected([]string{"Bold"})
+cg.Append("Strikethrough")
+```
+
+---
+
+## RadioGroup
+
+`widget.RadioGroup` presents mutually exclusive options — only one can be selected at a time.
+
+**Constructor**
+
+```go
+rg := widget.NewRadioGroup(
+    []string{"Option A", "Option B", "Option C"},
+    func(value string) {
+        fmt.Println("chosen:", value)
+    },
+)
+rg.Horizontal = true
+```
+
+**Key fields**
+
+| Field | Type | Description |
+|---|---|---|
+| `Options` | `[]string` | All available options. |
+| `Selected` | `string` | The currently selected option. |
+| `Horizontal` | `bool` | Horizontal layout when `true`. |
+| `Required` | `bool` | Marks the group as required. |
+| `OnChanged` | `func(string)` | Called when the selection changes. |
+
+```go
+rg.SetSelected("Option B")
+rg.Append("Option D")
+```
+
+---
+
+## Slider
+
+`widget.Slider` lets users choose a numeric value by dragging a handle between `Min` and `Max`.
+
+**Constructors**
+
+```go
+s := widget.NewSlider(0, 100) // min=0, max=100
+
+// Data-bound
+s := widget.NewSliderWithData(0, 1, myFloatBinding)
+```
+
+**Key fields**
+
+| Field | Type | Description |
+|---|---|---|
+| `Min` | `float64` | Lower bound. |
+| `Max` | `float64` | Upper bound. |
+| `Value` | `float64` | Current value. |
+| `Step` | `float64` | Increment per keyboard step (default `1`). |
+| `Orientation` | `widget.Orientation` | `widget.Horizontal` (default) or `widget.Vertical`. |
+| `OnChanged` | `func(float64)` | Called continuously while dragging. |
+| `OnChangeEnded` | `func(float64)` | Called once when the drag is released (since 2.4). |
+
+```go
+s := widget.NewSlider(0, 100)
+s.Step = 5
+s.OnChanged = func(v float64) { fmt.Printf("%.0f%%\n", v) }
+```
+
+---
+
+## Form
+
+`widget.Form` arranges label–widget pairs in a two-column grid and optionally adds Submit and Cancel buttons that are enabled only when all validators pass.
+
+**Constructors**
+
+```go
+// Inline items
+f := widget.NewForm(
+    widget.NewFormItem("Name", widget.NewEntry()),
+    widget.NewFormItem("Email", widget.NewEntry()),
+)
+
+// Separate item creation
+item := widget.NewFormItem("Password", widget.NewPasswordEntry())
+item.HintText = "At least 8 characters"
+```
+
+**Key fields on `Form`**
+
+| Field | Type | Description |
+|---|---|---|
+| `Items` | `[]*widget.FormItem` | All label–widget rows. |
+| `OnSubmit` | `func()` | Called when the Submit button is tapped. Setting this shows the button. |
+| `OnCancel` | `func()` | Called when the Cancel button is tapped. |
+| `SubmitText` | `string` | Override the Submit button label. |
+| `CancelText` | `string` | Override the Cancel button label. |
+| `Orientation` | `widget.Orientation` | `Horizontal` (default), `Vertical`, or adaptive. |
+
+**Key fields on `FormItem`**
+
+| Field | Type | Description |
+|---|---|---|
+| `Text` | `string` | Row label. |
+| `Widget` | `fyne.CanvasObject` | The input widget for this row. |
+| `HintText` | `string` | Helper text shown below the widget. |
+| `Required` | `bool` | Marks the field as required (since 2.8). |
+
+```go
+f := widget.NewForm(
+    widget.NewFormItem("Username", widget.NewEntry()),
+    widget.NewFormItem("Password", widget.NewPasswordEntry()),
+)
+f.OnSubmit = func() { fmt.Println("submitted") }
+f.OnCancel = func() { fmt.Println("cancelled") }
+
+// Append after construction
+f.Append("Confirm", widget.NewPasswordEntry())
+f.Submit() // programmatically submit
+```
+
+<Tip>
+When any widget inside a `Form` implements `fyne.Validatable` (e.g. an `Entry` with a `Validator`), the Submit button is automatically disabled until all validators pass.
+</Tip>
+
+---
+
+## DateEntry
+
+`widget.DateEntry` is a specialised entry widget that shows a calendar pop-up and parses a locale-appropriate date string.
+
+**Constructor**
+
+```go
+de := widget.NewDateEntry()
+de.OnChanged = func(t *time.Time) {
+    if t != nil {
+        fmt.Println("date selected:", t.Format("2006-01-02"))
+    }
+}
+```
+
+**Key fields**
+
+| Field | Type | Description |
+|---|---|---|
+| `Date` | `*time.Time` | The currently selected date (nil when empty). |
+| `OnChanged` | `func(*time.Time)` | Called when the date changes. |
+
+`DateEntry` embeds `Entry`, so `PlaceHolder`, `Validator`, and `Disable()`/`Enable()` all work as expected.
+
+<Note>
+The date format displayed follows the locale detected at runtime. The built-in `Validator` rejects strings that don't parse to a valid date in that format.
+</Note>

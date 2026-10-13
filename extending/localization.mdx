@@ -1,0 +1,257 @@
+---
+title: "Localize Your Fyne App with the lang Package"
+sidebarTitle: "Localization"
+description: "Learn how to add translations to your Fyne application using the fyne.io/fyne/v2/lang package, JSON translation files, and Go's embed.FS."
+---
+
+The `fyne.io/fyne/v2/lang` package, introduced in Fyne 2.5, gives Go applications a straightforward path to full internationalisation. Translations are stored in JSON files that follow the `go-i18n` format, embedded directly into your binary using Go's `embed` directive, and looked up at runtime against the system locale — no external files, no configuration, and no manual locale detection required.
+
+## How it works
+
+At initialisation, the `lang` package builds an internal translation bundle seeded with English. You extend that bundle by calling one of the `AddTranslations` functions before your UI appears. When a translation function such as `lang.L` is called, the package resolves the best matching locale from the bundle and returns the translated string — falling back to the key itself if no translation is found.
+
+## Translation file format
+
+Each translation file is a UTF-8 JSON file. The simplest form maps a **key** directly to its **translation**:
+
+```json
+{
+    "Open": "Ouvrir",
+    "Cancel": "Annuler",
+    "Save": "Enregistrer"
+}
+```
+
+The key is the string you pass to `lang.L` in your Go code. If the current locale has no translation for a key, the key itself is returned as the fallback, so English keys double as the default English UI text.
+
+### File naming convention
+
+Name each file after its [BCP 47](https://www.rfc-editor.org/rfc/rfc5646) language tag:
+
+| File | Language |
+|---|---|
+| `en.json` | English (fallback) |
+| `fr.json` | French |
+| `de.json` | German |
+| `ja.json` | Japanese |
+| `zh-Hans.json` | Simplified Chinese |
+
+Files may also carry a prefix for organisation, for example `myapp.fr.json` — the loader reads the rightmost `lang.json` segment.
+
+## Loading translations
+
+Embed a directory of JSON files with `//go:embed` and pass the `embed.FS` to `lang.AddTranslationsFS`:
+
+```go
+package main
+
+import (
+    "embed"
+
+    "fyne.io/fyne/v2/lang"
+)
+
+//go:embed translations
+var translations embed.FS
+
+func init() {
+    if err := lang.AddTranslationsFS(translations, "translations"); err != nil {
+        // non-fatal: missing translations fall back to the key
+        fyne.LogError("Failed to load translations", err)
+    }
+}
+```
+
+`AddTranslationsFS` reads every file in the named directory, infers its locale from the filename, and registers it with the bundle.
+
+<Note>
+  Call `AddTranslationsFS` (or `AddTranslations`) **before** building your UI. Widgets read translations when they are first rendered; strings requested before the bundle is populated will resolve to the raw key.
+</Note>
+
+If you have translations stored outside a filesystem — for example fetched from a server — use `AddTranslationsForLocale`:
+
+```go
+import "fyne.io/fyne/v2"
+
+err := lang.AddTranslationsForLocale(jsonData, fyne.NewLocale("fr"))
+```
+
+## Core translation functions
+
+### `lang.L` — localise by key
+
+`lang.L` is an alias for `lang.Localize`. Pass the string key; the key also serves as the English fallback:
+
+```go
+import "fyne.io/fyne/v2/lang"
+
+title := lang.L("Open")   // returns "Ouvrir" for French locale
+```
+
+Optionally pass template data as a struct or `map[string]any`:
+
+```go
+msg := lang.Localize("Hello {{.Name}}!", map[string]any{"Name": "Alice"})
+// French: "Bonjour Alice!" (if translation contains the template)
+```
+
+### `lang.X` — localise with an explicit key
+
+`lang.X` is an alias for `lang.LocalizeKey`. Use it when the display string is a Go reserved word or clashes with a translation reserved key, or when you want a lookup key that differs from the display text:
+
+```go
+label := lang.X("action.open", "Open")
+// key = "action.open", fallback displayed text = "Open"
+```
+
+This avoids the restriction that reserved keys (`id`, `description`, `other`, etc.) cannot appear as top-level keys alongside regular keys.
+
+### `lang.N` — plural forms
+
+`lang.N` is an alias for `lang.LocalizePlural`. Pass a count to select the correct plural form:
+
+```go
+statusText := lang.N("files", count)
+```
+
+### `lang.XN` — explicit key with plural
+
+`lang.XN` is an alias for `lang.LocalizePluralKey`, combining an explicit key with plural resolution:
+
+```go
+msg := lang.XN("item.count", "{{.Count}} item", count, map[string]any{"Count": count})
+```
+
+## Plural forms
+
+To handle pluralisation, use an object value with CLDR plural category keys (`zero`, `one`, `two`, `few`, `many`, `other`):
+
+```json
+{
+    "files": {
+        "one": "{{ .Count }} file",
+        "other": "{{ .Count }} files"
+    }
+}
+```
+
+In Go:
+
+```go
+text := lang.N("files", count, map[string]any{"Count": count})
+// count=1 → "1 file"
+// count=3 → "3 files"
+```
+
+<Warning>
+  Plural-form objects use reserved keys internally. You **cannot** mix them with regular string keys in the same JSON file. If you try, the loader will return an error such as `reserved keys [one other] mixed with unreserved keys [Open Cancel]`. Keep plural messages in a separate file or use a namespaced key structure.
+</Warning>
+
+## Reserved keys
+
+The following key names are treated as metadata by the `go-i18n` parser and must **not** appear as top-level translation keys alongside regular string keys:
+
+```
+id  description  hash  leftdelim  rightdelim
+zero  one  two  few  many  other  translation
+```
+
+If you need to translate one of these words as visible UI text, use `lang.X` with a contextual key:
+
+```go
+// ❌ Don't use "other" as a top-level key in a file with other keys
+// ✅ Do this instead:
+label := lang.X("label.other", "Other")
+```
+
+## Locale detection
+
+Fyne automatically detects the system locale using `go-locale` during `init`. You do not need to call any setup function. On Android, locale detection is deferred until the JVM context is available; the `ensureLocalizer` function retries the lookup transparently on the first translation call.
+
+<Tip>
+  During development you can override the detected locale by calling the internal `setupLang` function — but since that is unexported, the recommended approach for testing is to set the `LANG` environment variable before running your app: `LANG=fr_FR.UTF-8 go run .`
+</Tip>
+
+## Step-by-step: a bilingual English/French app
+
+<Steps>
+  <Step title="Create your translations directory">
+    ```
+    myapp/
+    └── translations/
+        ├── en.json
+        └── fr.json
+    ```
+  </Step>
+
+  <Step title="Write the English translation file">
+    ```json
+    {
+        "Greeting": "Hello, World!",
+        "Quit": "Quit"
+    }
+    ```
+
+    Because English is the fallback language, the keys and values can be identical.
+  </Step>
+
+  <Step title="Write the French translation file">
+    ```json
+    {
+        "Greeting": "Bonjour le monde !",
+        "Quit": "Quitter"
+    }
+    ```
+  </Step>
+
+  <Step title="Embed and register the translations">
+    ```go
+    package main
+
+    import (
+        "embed"
+
+        "fyne.io/fyne/v2"
+        "fyne.io/fyne/v2/app"
+        "fyne.io/fyne/v2/container"
+        "fyne.io/fyne/v2/lang"
+        "fyne.io/fyne/v2/widget"
+    )
+
+    //go:embed translations
+    var translations embed.FS
+
+    func init() {
+        if err := lang.AddTranslationsFS(translations, "translations"); err != nil {
+            fyne.LogError("Could not load translations", err)
+        }
+    }
+    ```
+  </Step>
+
+  <Step title="Use lang.L in your UI">
+    ```go
+    func main() {
+        a := app.New()
+        w := a.NewWindow(lang.L("Greeting"))
+
+        w.SetContent(container.NewVBox(
+            widget.NewLabel(lang.L("Greeting")),
+            widget.NewButton(lang.L("Quit"), func() { a.Quit() }),
+        ))
+
+        w.ShowAndRun()
+    }
+    ```
+
+    On a French system the window title and label will display "Bonjour le monde !" and the button will read "Quitter".
+  </Step>
+</Steps>
+
+## Registering translations for Fyne's built-in strings
+
+The `lang` package is also used internally by Fyne itself. If you ship a custom theme that changes built-in UI text (such as dialog button labels), you can register overrides for Fyne's own string keys by adding them to your translation files. The built-in Fyne strings are located in the `translations` directory embedded within the `lang` package source.
+
+<Tip>
+  For production apps, run `go generate` with a script that compiles all `.json` files so missing translation keys surface as build-time warnings rather than silent runtime fallbacks.
+</Tip>

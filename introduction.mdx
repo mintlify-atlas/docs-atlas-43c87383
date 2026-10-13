@@ -1,0 +1,73 @@
+---
+title: "Fyne: A Cross-Platform GUI Toolkit for Go Developers"
+sidebarTitle: "Introduction"
+description: "Fyne is an easy-to-use GUI toolkit written in Go for building desktop and mobile apps from one codebase, with no external runtime dependencies required."
+---
+
+Fyne is a cross-platform UI toolkit and application API written entirely in Go. It lets you write a single codebase and ship native-feeling applications to desktops, phones, and the browser — without managing platform-specific build systems or bundling external runtimes.
+
+## What is Fyne?
+
+Fyne provides a complete application framework on top of Go's standard toolchain. You define your UI with composable widgets and layout containers, attach business logic through plain Go functions, and let Fyne's driver layer translate everything into pixels on whatever device your users run. Because every Fyne app carries its own renderer, there are no system libraries for end-users to install — just download and run.
+
+The project is open source under the BSD-3-Clause licence and is actively maintained by the community at [fyne.io](https://fyne.io).
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Simple App Model" icon="play" href="/quickstart">
+    Create a full window-based application in fewer than 15 lines of Go. `app.New()`, `NewWindow()`, and `ShowAndRun()` are all you need to get started.
+  </Card>
+  <Card title="Rich Widget Library" icon="table-columns" href="/widgets/overview">
+    Buttons, labels, entries, lists, tables, trees, rich text, and more — all theme-aware and accessible out of the box.
+  </Card>
+  <Card title="Flexible Layouts & Containers" icon="object-group" href="/concepts/app-and-windows">
+    Stack, grid, border, split, and scroll containers let you compose complex interfaces without touching a single pixel value.
+  </Card>
+  <Card title="One-Command Packaging" icon="box-archive" href="/packaging/desktop">
+    Bundle your app for Windows, macOS, Linux, Android, or iOS using the `fyne` CLI tool — icons, metadata, and all.
+  </Card>
+  <Card title="Custom Widgets" icon="puzzle-piece" href="/extending/custom-widgets">
+    Extend Fyne with your own stateful, theme-aware widgets by implementing a handful of well-defined interfaces.
+  </Card>
+  <Card title="Full API Reference" icon="book" href="/api/app">
+    Every type, function, and interface is documented on pkg.go.dev and the Fyne developer portal.
+  </Card>
+</CardGroup>
+
+## Supported Platforms
+
+Fyne applications run on all major platforms from a single Go source tree:
+
+| Platform | Notes |
+|---|---|
+| **Windows** | 10 and later; requires a C compiler (TDM-GCC or MSYS2) |
+| **macOS** | 11 (Big Sur) and later; Xcode Command Line Tools required |
+| **Linux** | X11 and Wayland; requires gcc and Mesa/X11 headers |
+| **Android** | ARMv7 and ARM64; packaged with the `fyne` CLI |
+| **iOS** | Build from macOS with Xcode installed |
+| **WebAssembly** | Runs in modern browsers; no C compiler needed |
+
+## Architecture Overview
+
+Fyne separates the application model from the rendering back-end through a `fyne.Driver` interface. When you call `app.New()`, the framework selects the appropriate driver at compile time:
+
+- **Desktop (Windows / macOS / Linux)** — rendered with OpenGL (via GLFW) or Metal on Apple Silicon.
+- **Mobile (Android / iOS)** — rendered with OpenGL ES through the platform's native window system.
+- **WebAssembly** — rendered with WebGL inside a `<canvas>` element in the browser.
+
+All canvas objects — shapes, images, text, and widgets — are represented as Go structs. Fyne walks the object tree on each frame and issues draw calls through the active driver. This design means you can unit-test your entire UI without a display, using the `test` package or the `-tags ci` build flag.
+
+The `fyneApp` struct (in `fyne.io/fyne/v2/app`) owns the `Driver`, `Settings`, `Preferences`, `Storage`, and lifecycle hooks for your application. Each `fyne.Window` is created through the driver via `app.NewWindow()` and holds an independent canvas.
+
+## License
+
+Fyne is released under the **BSD 3-Clause License**. You can use it freely in personal, open-source, and commercial projects. See the [LICENSE](https://github.com/fyne-io/fyne/blob/develop/LICENSE) file in the repository for the full text.
+
+## Community & Support
+
+- **Slack** — Join the `#fyne` channel in the [Gophers Slack workspace](https://gophers.slack.com/messages/fyne) for real-time help and discussion.
+- **GitHub Issues** — Report bugs or request features at [github.com/fyne-io/fyne/issues](https://github.com/fyne-io/fyne/issues).
+- **Developer Portal** — Extended guides and tutorials at [developer.fyne.io](https://developer.fyne.io).
+- **API Reference** — Full package documentation at [pkg.go.dev/fyne.io/fyne/v2](https://pkg.go.dev/fyne.io/fyne/v2?tab=doc).
+- **Example Apps** — Browse community applications at [apps.fyne.io](https://apps.fyne.io) or explore the [examples repository](https://github.com/fyne-io/examples/).

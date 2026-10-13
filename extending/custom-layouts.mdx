@@ -1,0 +1,221 @@
+---
+title: "Implement Custom Layouts in Fyne"
+sidebarTitle: "Custom Layouts"
+description: "Learn how to implement the fyne.Layout interface to position and size child objects in a Fyne container using your own algorithm."
+---
+
+Fyne ships with a rich set of built-in layouts — `HBox`, `VBox`, `Grid`, `Border`, `Form`, and more — but real-world UIs occasionally need placement logic that none of them cover. By implementing the `fyne.Layout` interface you can take full control over where every child object is placed and how much space the container needs, while remaining a first-class participant in Fyne's resize and refresh lifecycle.
+
+## The `fyne.Layout` interface
+
+The interface lives in `fyne.io/fyne/v2` and requires exactly two methods:
+
+```go
+// Layout defines how CanvasObjects may be laid out in a specified Size.
+type Layout interface {
+    // Layout manipulates each object's Size and Position
+    // to fit within the given container size.
+    Layout([]CanvasObject, Size)
+
+    // MinSize calculates the smallest size that will fit all objects
+    // using this layout algorithm.
+    MinSize(objects []CanvasObject) Size
+}
+```
+
+That's it — no struct to embed, no base type to call. Any Go type that provides both methods satisfies `fyne.Layout`.
+
+## How Fyne calls your layout
+
+When a `container.Container` is resized or refreshed, Fyne calls `Layout(objects, containerSize)` on the layout instance assigned to that container. The layout is expected to mutate each object's size and position in place. Fyne calls `MinSize(objects)` to learn the smallest space the container should ever be given; this value bubbles up the widget tree during the layout pass.
+
+## Size and Position primitives
+
+Two value types are used throughout the layout API:
+
+| Type | Fields | Constructor |
+|---|---|---|
+| `fyne.Size` | `Width float32`, `Height float32` | `fyne.NewSize(w, h)` |
+| `fyne.Position` | `X float32`, `Y float32` | `fyne.NewPos(x, y)` |
+
+Within `Layout`, call these methods on each object to place it:
+
+```go
+obj.Resize(fyne.NewSize(width, height))   // set the object's size
+obj.Move(fyne.NewPos(x, y))               // set the object's top-left position
+```
+
+<Note>
+  Both `Resize` and `Move` are part of the `fyne.CanvasObject` interface, so they are always available inside `Layout` regardless of the concrete object type.
+</Note>
+
+## Step-by-step: a diagonal layout
+
+The following layout places each object diagonally from the top-left, offset by the previous object's height plus the current theme padding.
+
+<Steps>
+  <Step title="Define the layout struct">
+    A layout struct can be entirely empty if it carries no configuration, or it can hold parameters that adjust its behaviour:
+
+    ```go
+    package mylayout
+
+    import (
+        "fyne.io/fyne/v2"
+        "fyne.io/fyne/v2/theme"
+    )
+
+    // DiagonalLayout places each child object diagonally offset from the previous one.
+    type DiagonalLayout struct{}
+    ```
+  </Step>
+
+  <Step title="Implement Layout">
+    Iterate over the objects and move/resize each one, accumulating an offset:
+
+    ```go
+    func (d *DiagonalLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
+        offset := float32(0)
+        for _, obj := range objects {
+            s := obj.MinSize()
+            obj.Move(fyne.NewPos(offset, offset))
+            obj.Resize(s)
+            offset += s.Height + theme.Padding()
+        }
+    }
+    ```
+
+    `theme.Padding()` returns the current theme's standard gap (4 px in the default theme), keeping spacing consistent if the user applies a custom theme.
+  </Step>
+
+  <Step title="Implement MinSize">
+    Report the smallest bounding box that fits all objects:
+
+    ```go
+    func (d *DiagonalLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
+        w, h := float32(0), float32(0)
+        for _, obj := range objects {
+            s := obj.MinSize()
+            if s.Width > w {
+                w = s.Width
+            }
+            h += s.Height + theme.Padding()
+        }
+        return fyne.NewSize(w, h)
+    }
+    ```
+  </Step>
+
+  <Step title="Use the layout in a container">
+    Pass a pointer to your layout as the first argument to `container.New`:
+
+    ```go
+    import (
+        "fyne.io/fyne/v2/container"
+        "fyne.io/fyne/v2/widget"
+    )
+
+    c := container.New(&DiagonalLayout{},
+        widget.NewLabel("First"),
+        widget.NewLabel("Second"),
+        widget.NewLabel("Third"),
+    )
+    ```
+  </Step>
+</Steps>
+
+## Complete example
+
+```go
+package main
+
+import (
+    "fyne.io/fyne/v2"
+    "fyne.io/fyne/v2/app"
+    "fyne.io/fyne/v2/container"
+    "fyne.io/fyne/v2/theme"
+    "fyne.io/fyne/v2/widget"
+)
+
+// DiagonalLayout places children diagonally from the top-left corner.
+type DiagonalLayout struct{}
+
+func (d *DiagonalLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
+    offset := float32(0)
+    for _, obj := range objects {
+        s := obj.MinSize()
+        obj.Move(fyne.NewPos(offset, offset))
+        obj.Resize(s)
+        offset += s.Height + theme.Padding()
+    }
+}
+
+func (d *DiagonalLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
+    w, h := float32(0), float32(0)
+    for _, obj := range objects {
+        s := obj.MinSize()
+        if s.Width > w {
+            w = s.Width
+        }
+        h += s.Height + theme.Padding()
+    }
+    return fyne.NewSize(w, h)
+}
+
+func main() {
+    a := app.New()
+    w := a.NewWindow("Custom Layout Demo")
+
+    content := container.New(&DiagonalLayout{},
+        widget.NewButton("Alpha", nil),
+        widget.NewButton("Beta", nil),
+        widget.NewButton("Gamma", nil),
+    )
+
+    w.SetContent(content)
+    w.ShowAndRun()
+}
+```
+
+## Handling overflow and hidden objects
+
+When a container might be smaller than its `MinSize` — for example inside a scroll container — you can hide objects that would be clipped entirely rather than letting them draw outside the bounds:
+
+```go
+func (d *DiagonalLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
+    offset := float32(0)
+    for _, obj := range objects {
+        s := obj.MinSize()
+        pos := fyne.NewPos(offset, offset)
+
+        // Hide objects whose top-left corner falls outside the container.
+        if pos.X+s.Width > size.Width || pos.Y+s.Height > size.Height {
+            obj.Hide()
+        } else {
+            obj.Show()
+            obj.Move(pos)
+            obj.Resize(s)
+        }
+        offset += s.Height + theme.Padding()
+    }
+}
+```
+
+<Warning>
+  Calling `obj.Hide()` or `obj.Show()` inside `Layout` is safe, but avoid calling `Refresh()` on any object inside `Layout`. Refreshing during a layout pass causes recursive layout calls and will hang your application.
+</Warning>
+
+<Tip>
+  Layouts are stateless by design. If you need to pass configuration — for example a column count or an alignment mode — store it as fields on your layout struct and set them before adding the layout to a container.
+</Tip>
+
+## Referencing theme values
+
+Always use `theme.Padding()`, `theme.InnerPadding()`, and similar helpers inside your layout rather than hard-coded numbers. This ensures your layout respects custom themes your users may apply:
+
+| Helper | `ThemeSizeName` constant | Default |
+|---|---|---|
+| `theme.Padding()` | `theme.SizeNamePadding` | 4 px |
+| `theme.InnerPadding()` | `theme.SizeNameInnerPadding` | 8 px |
+| `theme.IconInlineSize()` | `theme.SizeNameInlineIcon` | 20 px |
+| `theme.SeparatorThicknessSize()` | `theme.SizeNameSeparatorThickness` | 1 px |
